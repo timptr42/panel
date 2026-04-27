@@ -1,6 +1,9 @@
 services:
   panel:
-    build: .
+    build:
+      context: .
+      args:
+        PANEL_BUILD: ${PANEL_BUILD:-local}
     container_name: panel
     restart: unless-stopped
     privileged: true

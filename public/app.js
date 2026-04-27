@@ -3,6 +3,7 @@ const appState = {
   routes: [],
   certificates: [],
   selectedRoute: null,
+  meta: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -50,6 +51,25 @@ async function checkAuth() {
     $("#login-view").hidden = false;
     $("#app-view").hidden = true;
     return false;
+  }
+}
+
+function renderMeta(meta) {
+  const version = meta?.version || "dev";
+  const build = meta?.build || "local";
+  const label = `v${version} (${build})`;
+  document.title = `timptr panel ${label}`;
+  document.querySelectorAll("[data-version-label]").forEach((element) => {
+    element.textContent = label;
+  });
+}
+
+async function loadMeta() {
+  try {
+    appState.meta = await api("/api/meta");
+    renderMeta(appState.meta);
+  } catch {
+    renderMeta({ version: "dev", build: "unknown" });
   }
 }
 
@@ -273,4 +293,4 @@ $("#cert-cancel").addEventListener("click", () => $("#cert-dialog").close());
 $("#containers-body").addEventListener("click", handleContainerAction);
 $("#renew-all").addEventListener("click", renewAllCertificates);
 
-checkAuth();
+loadMeta().finally(checkAuth);

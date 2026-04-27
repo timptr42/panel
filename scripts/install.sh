@@ -159,7 +159,7 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 prepare_env
-docker compose up -d --build
+PANEL_BUILD="$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)" docker compose up -d --build
 wait_for_panel
 
 cat >/etc/nginx/sites-available/"$CONF_NAME" <<NGINX

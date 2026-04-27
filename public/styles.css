@@ -98,6 +98,15 @@ input {
   color: var(--muted);
 }
 
+.version-badge {
+  display: inline-flex;
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;

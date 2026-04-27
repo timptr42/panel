@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import packageJson from '../package.json' with { type: 'json' };
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -14,6 +15,8 @@ const app = express();
 const port = Number(process.env.PORT || 7777);
 const hostRoot = process.env.HOST_ROOT || '/host';
 const managedPrefix = process.env.NGINX_MANAGED_PREFIX || 'panel-managed-';
+const appVersion = process.env.PANEL_VERSION || packageJson.version;
+const appBuild = process.env.PANEL_BUILD || 'dev';
 const allowAnyDomain = process.env.ALLOW_ANY_DOMAIN === 'true';
 const domainPattern = allowAnyDomain
   ? /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i
@@ -398,6 +401,10 @@ async function issueCertificate(domain, email) {
   );
   return stdout || stderr;
 }
+
+app.get('/api/meta', (req, res) => {
+  res.json({ version: appVersion, build: appBuild });
+});
 
 app.get('/api/me', (req, res) => {
   if (!req.session.authenticated) {

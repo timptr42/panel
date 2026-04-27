@@ -13,6 +13,7 @@
 - создание и изменение маршрутов вида `%project%.timptr.ru -> http://127.0.0.1:%port%`;
 - просмотр сертификатов Let's Encrypt через `certbot certificates`;
 - выпуск/переустановка сертификата через `certbot --nginx`.
+- отображение версии и build id в title и интерфейсе.
 
 ## Требования к серверу
 
@@ -41,6 +42,8 @@ sudo bash scripts/install.sh
 5. соберет и запустит контейнер панели на `127.0.0.1:7777`;
 6. создаст nginx-маршрут `panel.timptr.ru -> 127.0.0.1:7777`;
 7. выполнит `nginx -t` и `systemctl reload nginx`.
+
+Build id берется из текущего git commit и отображается в title страницы, например `timptr panel v1.0.0 (abc1234)`.
 
 После этого зайдите на `http://panel.timptr.ru`, авторизуйтесь мастер-паролем и при необходимости выпустите HTTPS-сертификат для `panel.timptr.ru` через UI. Для выпуска сертификата панель запросит email.
 
@@ -83,6 +86,7 @@ server {
 | `PANEL_PASSWORD` | - | Пароль администратора |
 | `SESSION_SECRET` | - | Секрет cookie-сессии |
 | `COOKIE_SECURE` | `false` | Оставьте `false` для HTTP. Поставьте `true` только после выпуска HTTPS-сертификата |
+| `PANEL_BUILD` | git commit | Build id, который показывается в title и UI |
 | `HOST_ROOT` | `/host` | Mount host root внутри контейнера |
 | `HOST_COMMAND_MODE` | `nsenter` | `nsenter` для контейнера, `direct` для локальной разработки |
 | `NGINX_MANAGED_PREFIX` | `panel-managed-` | Префикс nginx-конфигов, которые создает панель |
