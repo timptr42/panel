@@ -139,6 +139,16 @@ sudo sed -i '/^[A-Za-z_][A-Za-z0-9_]*=/!d' .env
 sudo bash scripts/install.sh
 ```
 
+Чтобы сбросить пароль панели:
+
+```bash
+cd /opt/panel
+sudo sed -i '/^PANEL_PASSWORD=/d' .env
+sudo bash scripts/install.sh
+```
+
+Пароль хранится в `.env` как обычное значение `PANEL_PASSWORD=...`; не добавляйте вокруг него кавычки вручную.
+
 ## Локальная проверка
 
 ```bash

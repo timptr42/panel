@@ -43,10 +43,18 @@ sanitize_env_file() {
   local tmp_file
   tmp_file="$(mktemp)"
 
-  awk '
+  awk -F= '
     /^[[:space:]]*$/ { print; next }
     /^[[:space:]]*#/ { print; next }
-    /^[A-Za-z_][A-Za-z0-9_]*=/ { print; next }
+    /^[A-Za-z_][A-Za-z0-9_]*=/ {
+      key = $1
+      sub(/^[^=]*=/, "")
+      if ($0 ~ /^'\''.*'\''$/ || $0 ~ /^".*"$/) {
+        $0 = substr($0, 2, length($0) - 2)
+      }
+      print key "=" $0
+      next
+    }
     {
       printf "Dropping invalid .env line: %s\n", $0 > "/dev/stderr"
     }
@@ -61,21 +69,26 @@ write_env_value() {
   local value="$2"
   local tmp_file
 
+  if ! is_safe_env_value "$value"; then
+    echo "Unsafe value for $key. Use only letters, digits and ._@%+,:/!-" >&2
+    exit 1
+  fi
+
   tmp_file="$(mktemp)"
   if [[ -f "$ENV_FILE" ]] && awk -F= -v key="$key" '$1 == key { found = 1 } END { exit(found ? 0 : 1) }' "$ENV_FILE"; then
-    awk -F= -v key="$key" -v value="$(quote_env_value "$value")" 'BEGIN { written = 0 } $1 == key && !written { print key "=" value; written = 1; next } { print }' "$ENV_FILE" >"$tmp_file"
+    awk -F= -v key="$key" -v value="$value" 'BEGIN { written = 0 } $1 == key && !written { print key "=" value; written = 1; next } { print }' "$ENV_FILE" >"$tmp_file"
   else
     [[ -f "$ENV_FILE" ]] && cp "$ENV_FILE" "$tmp_file"
-    printf '%s=%s\n' "$key" "$(quote_env_value "$value")" >>"$tmp_file"
+    printf '%s=%s\n' "$key" "$value" >>"$tmp_file"
   fi
 
   install -m 600 "$tmp_file" "$ENV_FILE"
   rm -f "$tmp_file"
 }
 
-quote_env_value() {
+is_safe_env_value() {
   local value="$1"
-  printf "'%s'" "${value//\'/\'\\\'\'}"
+  [[ "$value" =~ ^[A-Za-z0-9._@%+,:/!-]+$ ]]
 }
 
 generate_secret() {
@@ -107,6 +120,8 @@ prompt_password() {
       echo "Password cannot be empty." >&2
     elif [[ "$password" != "$confirmation" ]]; then
       echo "Passwords do not match." >&2
+    elif ! is_safe_env_value "$password"; then
+      echo "Use only letters, digits and these symbols: . _ @ % + , : / ! -" >&2
     else
       printf '%s' "$password"
       return
