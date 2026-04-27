@@ -475,6 +475,11 @@ dialog label {
   color: var(--muted);
 }
 
+dialog label.checkbox {
+  display: flex;
+  align-items: center;
+}
+
 dialog input {
   width: 100%;
   padding: 10px 12px;
@@ -482,6 +487,10 @@ dialog input {
   border-radius: 10px;
   color: var(--text);
   background: #0b1220;
+}
+
+dialog label.checkbox input {
+  width: auto;
 }
 
 dialog menu {

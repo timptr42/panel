@@ -221,8 +221,17 @@ function openRouteDialog(route = null) {
   $("#route-domain").value = route?.domain || "";
   $("#route-domain").disabled = Boolean(route);
   $("#route-port").value = route?.targetPort || "";
+  $("#route-issue-certificate").checked = !route?.certificate;
+  $("#route-email").value = "";
+  syncRouteCertificateFields();
   $("#route-dialog-title").textContent = route ? "Изменить маршрут" : "Новый маршрут";
   $("#route-dialog").showModal();
+}
+
+function syncRouteCertificateFields() {
+  const enabled = $("#route-issue-certificate").checked;
+  $("#route-email").required = enabled;
+  $("#route-email-wrap").classList.toggle("hidden", !enabled);
 }
 
 function closeRouteDialog() {
@@ -279,13 +288,20 @@ async function saveRoute(event) {
   event.preventDefault();
   const domain = $("#route-domain").value.trim();
   const port = Number($("#route-port").value);
+  const issueCertificate = $("#route-issue-certificate").checked;
+  const email = $("#route-email").value.trim();
   try {
     await api("/api/nginx/routes", {
       method: "POST",
-      body: JSON.stringify({ domain, port }),
+      body: JSON.stringify({ domain, port, issueCertificate, email }),
     });
     closeRouteDialog();
-    showMessage("Маршрут сохранен и nginx перезагружен", "success");
+    showMessage(
+      issueCertificate
+        ? "Маршрут сохранен, сертификат выпущен, nginx перезагружен"
+        : "Маршрут сохранен и nginx перезагружен",
+      "success",
+    );
     await refreshAll();
   } catch (error) {
     showMessage(error.message, "error");
@@ -337,6 +353,9 @@ $("#new-route").addEventListener("click", () => openRouteDialog());
 $("#show-inactive-routes").addEventListener("change", (event) => {
   appState.showInactiveRoutes = event.target.checked;
   renderRoutes();
+});
+$("#route-issue-certificate").addEventListener("change", (event) => {
+  syncRouteCertificateFields();
 });
 $("#route-form").addEventListener("submit", saveRoute);
 $("#route-cancel").addEventListener("click", closeRouteDialog);

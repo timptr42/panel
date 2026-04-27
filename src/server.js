@@ -457,6 +457,20 @@ async function upsertRoute(domain, targetPort) {
   return { file: fileName, domain, targetPort };
 }
 
+async function upsertRouteWithOptionalCertificate(domain, targetPort, certificateOptions = {}) {
+  const route = await upsertRoute(domain, targetPort);
+  if (!certificateOptions.issue) {
+    return { route, certificateOutput: '' };
+  }
+
+  const email = validateEmail(certificateOptions.email);
+  const certificateOutput = await issueCertificate(domain, email);
+  return {
+    route: await upsertRoute(domain, targetPort),
+    certificateOutput,
+  };
+}
+
 function parseCertificateOutput(output) {
   const sections = output.split(/- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -/g);
   return sections
@@ -682,7 +696,11 @@ app.post('/api/nginx/routes', requireAuth, async (req, res, next) => {
   try {
     const domain = validateDomain(req.body?.domain);
     const targetPort = validatePort(req.body?.targetPort ?? req.body?.port);
-    res.json({ ok: true, route: await upsertRoute(domain, targetPort) });
+    const { route, certificateOutput } = await upsertRouteWithOptionalCertificate(domain, targetPort, {
+      issue: Boolean(req.body?.issueCertificate),
+      email: req.body?.email,
+    });
+    res.json({ ok: true, route, certificateOutput });
   } catch (error) {
     next(error);
   }

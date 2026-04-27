@@ -140,6 +140,14 @@
           Локальный порт
           <input id="route-port" type="number" min="1" max="65535" required />
         </label>
+        <label class="checkbox-row">
+          <input id="route-issue-certificate" type="checkbox" checked />
+          Выпустить HTTPS-сертификат сразу
+        </label>
+        <label id="route-email-wrap">
+          Email для Let's Encrypt
+          <input id="route-email" type="email" placeholder="admin@example.com" />
+        </label>
         <menu>
           <button type="button" id="route-cancel" class="secondary">Отмена</button>
           <button type="submit">Сохранить</button>
