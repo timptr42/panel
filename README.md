@@ -29,26 +29,22 @@
 ```bash
 git clone https://github.com/timptr42/panel.git /opt/panel
 cd /opt/panel
-cp .env.example .env
-nano .env
 sudo bash scripts/install.sh
-```
-
-В `.env` обязательно поменяйте:
-
-```dotenv
-PANEL_PASSWORD=change-me
-SESSION_SECRET=replace-with-long-random-string
 ```
 
 Скрипт:
 
 1. проверит наличие Docker/nginx/certbot;
-2. соберет и запустит контейнер панели на `127.0.0.1:7777`;
-3. создаст nginx-маршрут `panel.timptr.ru -> 127.0.0.1:7777`;
-4. выполнит `nginx -t` и `systemctl reload nginx`.
+2. создаст `.env`, если его еще нет;
+3. запросит мастер-пароль панели в диалоговом режиме;
+4. сгенерирует `SESSION_SECRET` для подписи cookie-сессии;
+5. соберет и запустит контейнер панели на `127.0.0.1:7777`;
+6. создаст nginx-маршрут `panel.timptr.ru -> 127.0.0.1:7777`;
+7. выполнит `nginx -t` и `systemctl reload nginx`.
 
-После этого зайдите на `http://panel.timptr.ru`, авторизуйтесь паролем из `.env` и при необходимости выпустите HTTPS-сертификат для `panel.timptr.ru` через UI. Для выпуска сертификата панель запросит email.
+После этого зайдите на `http://panel.timptr.ru`, авторизуйтесь мастер-паролем и при необходимости выпустите HTTPS-сертификат для `panel.timptr.ru` через UI. Для выпуска сертификата панель запросит email.
+
+`SESSION_SECRET` нужен Express для подписи cookie-сессии. Он не является паролем входа, но должен быть стабильным между рестартами: иначе все сессии будут сбрасываться. Слабый или общий секрет также упрощает подделку session cookie, поэтому install-скрипт генерирует длинное случайное значение автоматически.
 
 ## Ручной запуск без install.sh
 
