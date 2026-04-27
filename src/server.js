@@ -126,8 +126,9 @@ function splitContainerPort(value) {
 
 async function hostShell(command, options = {}) {
   const useNsenter = process.env.HOST_COMMAND_MODE !== 'direct';
+  const nsenterFlags = process.env.HOST_NSENTER_FLAGS || '-t 1 -u -i -n -p';
   const shellCommand = useNsenter
-    ? `nsenter -t 1 -m -u -i -n -p -- chroot ${shellEscape(hostRoot)} /bin/bash -lc ${shellEscape(command)}`
+    ? `nsenter ${nsenterFlags} -- chroot ${shellEscape(hostRoot)} /bin/bash -lc ${shellEscape(command)}`
     : command;
 
   try {

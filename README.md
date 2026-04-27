@@ -94,6 +94,7 @@ server {
 | `PANEL_VERSION` | package version | Версия приложения, которую показывает title и UI |
 | `HOST_ROOT` | `/host` | Mount host root внутри контейнера |
 | `HOST_COMMAND_MODE` | `nsenter` | `nsenter` для контейнера, `direct` для локальной разработки |
+| `HOST_NSENTER_FLAGS` | `-t 1 -u -i -n -p` | Namespace flags для host-команд; mount namespace специально не включен, чтобы был виден `/host` |
 | `NGINX_MANAGED_PREFIX` | `panel-managed-` | Префикс nginx-конфигов, которые создает панель |
 | `ALLOW_ANY_DOMAIN` | `false` | По умолчанию разрешены только `*.timptr.ru` |
 
