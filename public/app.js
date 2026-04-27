@@ -17,7 +17,7 @@ function escapeHtml(value) {
 }
 
 function showMessage(text, type = "info") {
-  const message = $("#message");
+  const message = $("#app-view").hidden ? $("#login-message") : $("#message");
   message.textContent = text;
   message.className = `message ${type}`;
   message.hidden = false;
@@ -43,10 +43,13 @@ async function checkAuth() {
     await api("/api/me");
     $("#login-view").hidden = true;
     $("#app-view").hidden = false;
+    $("#login-message").hidden = true;
     await refreshAll();
+    return true;
   } catch {
     $("#login-view").hidden = false;
     $("#app-view").hidden = true;
+    return false;
   }
 }
 
@@ -58,7 +61,13 @@ async function login(event) {
       body: JSON.stringify({ password: $("#password").value }),
     });
     $("#password").value = "";
-    await checkAuth();
+    const authenticated = await checkAuth();
+    if (!authenticated) {
+      showMessage(
+        "Пароль принят, но браузер не сохранил сессию. Если панель открыта по HTTP, проверьте COOKIE_SECURE=false в /opt/panel/.env и перезапустите docker compose.",
+        "error",
+      );
+    }
   } catch (error) {
     showMessage(error.message, "error");
   }

@@ -113,7 +113,17 @@ prepare_env() {
   fi
 
   [[ -n "$(read_env_value PORT)" ]] || write_env_value PORT "$PORT"
-  [[ -n "$(read_env_value COOKIE_SECURE)" ]] || write_env_value COOKIE_SECURE "true"
+
+  local current_cookie_secure
+  current_cookie_secure="$(read_env_value COOKIE_SECURE)"
+  if [[ -n "${COOKIE_SECURE:-}" ]]; then
+    write_env_value COOKIE_SECURE "$COOKIE_SECURE"
+  elif [[ -z "$current_cookie_secure" ]]; then
+    write_env_value COOKIE_SECURE "false"
+  elif [[ "$current_cookie_secure" == "true" && ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]]; then
+    write_env_value COOKIE_SECURE "false"
+  fi
+
   [[ -n "$(read_env_value NGINX_MANAGED_PREFIX)" ]] || write_env_value NGINX_MANAGED_PREFIX "panel-managed-"
   [[ -n "$(read_env_value ALLOW_ANY_DOMAIN)" ]] || write_env_value ALLOW_ANY_DOMAIN "false"
 }

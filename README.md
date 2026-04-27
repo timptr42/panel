@@ -82,7 +82,7 @@ server {
 | `PORT` | `7777` | Порт внутри контейнера |
 | `PANEL_PASSWORD` | - | Пароль администратора |
 | `SESSION_SECRET` | - | Секрет cookie-сессии |
-| `COOKIE_SECURE` | `false` | Поставьте `true`, если панель всегда открывается по HTTPS |
+| `COOKIE_SECURE` | `false` | Оставьте `false` для HTTP. Поставьте `true` только после выпуска HTTPS-сертификата |
 | `HOST_ROOT` | `/host` | Mount host root внутри контейнера |
 | `HOST_COMMAND_MODE` | `nsenter` | `nsenter` для контейнера, `direct` для локальной разработки |
 | `NGINX_MANAGED_PREFIX` | `panel-managed-` | Префикс nginx-конфигов, которые создает панель |
