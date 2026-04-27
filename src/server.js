@@ -37,6 +37,7 @@ if (!panelPassword) {
   process.exit(1);
 }
 
+app.set('trust proxy', Number(process.env.TRUST_PROXY || 1));
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '1mb' }));
 app.use(

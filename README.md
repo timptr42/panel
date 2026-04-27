@@ -87,6 +87,7 @@ server {
 | `PANEL_PASSWORD` | - | Legacy-вариант пароля администратора, используется только если нет `PANEL_PASSWORD_B64` |
 | `SESSION_SECRET` | - | Секрет cookie-сессии |
 | `COOKIE_SECURE` | `false` | Оставьте `false` для HTTP. Поставьте `true` только после выпуска HTTPS-сертификата |
+| `TRUST_PROXY` | `true` | Доверять `X-Forwarded-Proto` от nginx, чтобы secure-cookie работали за reverse proxy |
 | `PANEL_BUILD` | git commit | Build id, который показывается в title и UI |
 | `HOST_ROOT` | `/host` | Mount host root внутри контейнера |
 | `HOST_COMMAND_MODE` | `nsenter` | `nsenter` для контейнера, `direct` для локальной разработки |
