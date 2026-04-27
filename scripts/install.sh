@@ -106,9 +106,9 @@ prompt_password() {
 
   while true; do
     read -rsp "Set panel master password: " password
-    echo
+    echo >&2
     read -rsp "Repeat panel master password: " confirmation
-    echo
+    echo >&2
 
     if [[ -z "$password" ]]; then
       echo "Password cannot be empty." >&2
