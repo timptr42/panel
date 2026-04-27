@@ -1,0 +1,32 @@
+{
+  "name": "panel",
+  "version": "1.0.0",
+  "description": "Mini Ubuntu server control panel for Docker, nginx routes and certbot certificates.",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/timptr42/panel.git"
+  },
+  "keywords": [
+    "docker",
+    "nginx",
+    "certbot",
+    "panel"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/timptr42/panel/issues"
+  },
+  "homepage": "https://github.com/timptr42/panel#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "helmet": "^8.1.0"
+  }
+}

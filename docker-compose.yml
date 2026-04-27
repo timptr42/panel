@@ -1,0 +1,16 @@
+services:
+  panel:
+    build: .
+    container_name: panel
+    restart: unless-stopped
+    privileged: true
+    pid: host
+    ports:
+      - "127.0.0.1:7777:7777"
+    env_file:
+      - .env
+    environment:
+      PORT: 7777
+      HOST_ROOT: /host
+    volumes:
+      - /:/host:rw

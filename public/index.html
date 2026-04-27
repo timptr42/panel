@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>timptr panel</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section id="login-view" class="login-card">
+        <h1>timptr panel</h1>
+        <p>Мини-панель для Docker, nginx и certbot.</p>
+        <form id="login-form">
+          <label for="password">Пароль</label>
+          <input id="password" type="password" autocomplete="current-password" required autofocus />
+          <button type="submit">Войти</button>
+        </form>
+      </section>
+
+      <section id="app-view" hidden>
+        <header class="topbar">
+          <div>
+            <h1>Серверная панель</h1>
+            <p>Docker-контейнеры, маршруты nginx и сертификаты Let's Encrypt.</p>
+          </div>
+          <div class="toolbar">
+            <button id="refresh" type="button">Обновить</button>
+            <button id="logout" class="secondary" type="button">Выйти</button>
+          </div>
+        </header>
+
+        <div id="message" class="message" hidden></div>
+
+        <section class="grid">
+          <article class="card full">
+            <div class="card-header">
+              <div>
+                <h2>Docker</h2>
+                <p>Все имеющиеся контейнеры и опубликованные порты.</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Контейнер</th>
+                    <th>Статус</th>
+                    <th>Порты</th>
+                    <th>Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="containers-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card full">
+            <div class="card-header">
+              <div>
+                <h2>Домены и маршруты nginx</h2>
+                <p>Правила из /etc/nginx/sites-available и /etc/nginx/sites-enabled.</p>
+              </div>
+              <button id="new-route" type="button">Добавить маршрут</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Домен</th>
+                    <th>Статус</th>
+                    <th>Маршрут</th>
+                    <th>Сертификат</th>
+                    <th>Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="routes-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card full">
+            <div class="card-header">
+              <div>
+                <h2>Certbot</h2>
+                <p>Сертификаты Let's Encrypt, известные certbot на сервере.</p>
+              </div>
+              <button id="renew-all" type="button" class="secondary">Renew all</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Certificate Name</th>
+                    <th>Домены</th>
+                    <th>Expiry</th>
+                    <th>Путь</th>
+                    <th>Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="certificates-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="route-dialog">
+      <form id="route-form">
+        <h2 id="route-dialog-title">Маршрут</h2>
+        <label>
+          Домен
+          <input id="route-domain" placeholder="project.timptr.ru" required />
+        </label>
+        <label>
+          Локальный порт
+          <input id="route-port" type="number" min="1" max="65535" required />
+        </label>
+        <menu>
+          <button type="button" id="route-cancel" class="secondary">Отмена</button>
+          <button type="submit">Сохранить</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="cert-dialog">
+      <form id="cert-form">
+        <h2>Выпустить или переустановить сертификат</h2>
+        <label>
+          Домен
+          <input id="cert-domain" required />
+        </label>
+        <label>
+          Email для Let's Encrypt
+          <input id="cert-email" type="email" placeholder="admin@example.com" required />
+        </label>
+        <menu>
+          <button type="button" id="cert-cancel" class="secondary">Отмена</button>
+          <button type="submit">Запустить certbot</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
