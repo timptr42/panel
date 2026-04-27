@@ -113,6 +113,32 @@ input {
   gap: 8px;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.summary-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(17, 28, 49, 0.72);
+}
+
+.summary-value {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.summary-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
@@ -192,6 +218,28 @@ th {
   color: #bfdbfe;
   background: rgba(96, 165, 250, 0.12);
   font-size: 12px;
+}
+
+.port-map {
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.port-map strong {
+  color: var(--text);
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.filter-row input {
+  accent-color: var(--primary);
 }
 
 .stack {

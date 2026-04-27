@@ -4,6 +4,7 @@ const appState = {
   certificates: [],
   selectedRoute: null,
   meta: null,
+  showInactiveRoutes: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -109,11 +110,24 @@ function renderPorts(ports) {
   if (!ports?.length) return "<span class=\"muted-text\">нет опубликованных портов</span>";
   return ports
     .map((port) => {
-      const host = port.hostPort ? `${port.hostIp || "0.0.0.0"}:${port.hostPort}` : "не опубликован";
+      const hostIp = port.hostIp === "::" ? "[::]" : port.hostIp || "0.0.0.0";
+      const host = port.hostPort ? `${hostIp}:${port.hostPort}` : "не опубликован";
       const privatePort = port.privatePort ? `${port.privatePort}/${port.type}` : port.containerPort;
-      return `<span class="pill">${escapeHtml(host)} -> ${escapeHtml(privatePort)}</span>`;
+      return `
+        <span class="port-map">
+          <span><span class="port-label">вход</span>${escapeHtml(host)}</span>
+          <span class="port-arrow">-></span>
+          <span><span class="port-label">контейнер</span>${escapeHtml(privatePort)}</span>
+        </span>
+      `;
     })
     .join("");
+}
+
+function renderSummary() {
+  $("#summary-containers").textContent = `${appState.containers.filter((item) => item.running).length}/${appState.containers.length}`;
+  $("#summary-routes").textContent = `${appState.routes.filter((item) => item.enabled).length}/${appState.routes.length}`;
+  $("#summary-certs").textContent = String(appState.certificates.length);
 }
 
 function renderContainers() {
@@ -139,14 +153,19 @@ function renderContainers() {
 
 function renderRoutes() {
   const body = $("#routes-body");
-  body.innerHTML = appState.routes.length
-    ? appState.routes.map(
+  const routes = appState.showInactiveRoutes ? appState.routes : appState.routes.filter((route) => route.enabled);
+  body.innerHTML = routes.length
+    ? routes.map(
       (route) => `
         <tr>
           <td><strong>${escapeHtml(route.domain)}</strong><div class="subtle">${escapeHtml(route.file)}</div></td>
           <td>${route.enabled ? statusBadge(true) : "<span class=\"badge warning\">disabled</span>"}</td>
-          <td><span class="pill">${escapeHtml(route.target || "не найден")}</span></td>
-          <td>${route.certificate ? escapeHtml(route.certificate.summary) : "<span class=\"muted-text\">нет данных</span>"}</td>
+          <td>
+            <span class="pill">${escapeHtml(route.ssl ? "HTTPS" : "HTTP")}</span>
+            <div class="subtle">${escapeHtml(route.listens.join(", ") || "listen не найден")}</div>
+            <div>${escapeHtml(route.target || "не найден")}</div>
+          </td>
+          <td>${route.certificate ? `<strong>${escapeHtml(route.certificate.name)}</strong><div class="subtle">${escapeHtml(route.certificate.summary || "expiry unknown")}</div>` : "<span class=\"muted-text\">нет данных</span>"}</td>
           <td class="actions">
             <button data-route-edit="${escapeHtml(route.domain)}">Изменить</button>
             <button data-cert-domain="${escapeHtml(route.domain)}">Сертификат</button>
@@ -210,6 +229,7 @@ async function refreshAll() {
   appState.routes = routes.routes;
   appState.certificates = certificates.certificates;
   renderContainers();
+  renderSummary();
   renderRoutes();
   renderCertificates();
 }
@@ -296,6 +316,10 @@ $("#login-form").addEventListener("submit", login);
 $("#logout").addEventListener("click", logout);
 $("#refresh").addEventListener("click", loadDashboard);
 $("#new-route").addEventListener("click", () => openRouteDialog());
+$("#show-inactive-routes").addEventListener("change", (event) => {
+  appState.showInactiveRoutes = event.target.checked;
+  renderRoutes();
+});
 $("#route-form").addEventListener("submit", saveRoute);
 $("#route-cancel").addEventListener("click", closeRouteDialog);
 $("#cert-form").addEventListener("submit", issueCertificate);

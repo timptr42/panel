@@ -34,11 +34,26 @@
         <div id="message" class="message" hidden></div>
 
         <section class="grid">
+          <article class="summary-grid full" id="summary">
+            <div class="summary-card">
+              <div class="summary-value" id="summary-containers">0/0</div>
+              <div class="summary-label">Docker: активно / всего</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value" id="summary-routes">0/0</div>
+              <div class="summary-label">Nginx: активно / всего</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-value" id="summary-certs">0</div>
+              <div class="summary-label">Сертификаты certbot</div>
+            </div>
+          </article>
+
           <article class="card full">
             <div class="card-header">
               <div>
                 <h2>Docker</h2>
-                <p>Все имеющиеся контейнеры и опубликованные порты.</p>
+                <p>Контейнеры, статус и проброс портов host -> container.</p>
               </div>
             </div>
             <div class="table-wrap">
@@ -47,7 +62,7 @@
                   <tr>
                     <th>Контейнер</th>
                     <th>Статус</th>
-                    <th>Порты</th>
+                    <th>Проброс портов</th>
                     <th>Действия</th>
                   </tr>
                 </thead>
@@ -60,9 +75,15 @@
             <div class="card-header">
               <div>
                 <h2>Домены и маршруты nginx</h2>
-                <p>Правила из /etc/nginx/sites-available и /etc/nginx/sites-enabled.</p>
+                <p>По умолчанию показаны только активные маршруты из sites-enabled.</p>
               </div>
-              <button id="new-route" type="button">Добавить маршрут</button>
+              <div class="toolbar">
+                <label class="toggle">
+                  <input id="show-inactive-routes" type="checkbox" />
+                  Показать неактивные
+                </label>
+                <button id="new-route" type="button">Добавить маршрут</button>
+              </div>
             </div>
             <div class="table-wrap">
               <table>
@@ -70,7 +91,7 @@
                   <tr>
                     <th>Домен</th>
                     <th>Статус</th>
-                    <th>Маршрут</th>
+                    <th>Вход / proxy</th>
                     <th>Сертификат</th>
                     <th>Действия</th>
                   </tr>

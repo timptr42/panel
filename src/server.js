@@ -298,33 +298,58 @@ function extractTargetPort(proxies = []) {
   return null;
 }
 
+function summarizeRouteTarget(proxies = []) {
+  const proxy = proxies.find(Boolean);
+  if (!proxy) return '';
+  const port = extractTargetPort([proxy]);
+  return port ? `localhost:${port}` : proxy;
+}
+
 async function listRoutesWithCertificates() {
   const [sites, certificates] = await Promise.all([listNginxSites(), parseCertificates()]);
-  const routes = sites.flatMap((site) =>
-    site.routes.flatMap((route) =>
-      route.names.map((domain) => {
-        const certificate = certificates.find((cert) => cert.domains.includes(domain));
-        return {
+  const byDomainAndFile = new Map();
+
+  for (const site of sites) {
+    for (const route of site.routes) {
+      for (const domain of route.names) {
+        const key = `${domain}\n${site.file}`;
+        const existing = byDomainAndFile.get(key) || {
           domain,
           file: site.file,
           managed: site.managed,
           enabled: site.enabled,
-          listens: route.listens,
-          proxies: route.proxies,
-          target: route.proxies[0] || '',
-          targetPort: extractTargetPort(route.proxies),
-          ssl: route.ssl,
-          certificate: certificate
-            ? {
-                ...certificate,
-                summary: certificate.expiry || certificate.name,
-              }
-            : null,
+          listens: [],
+          proxies: [],
+          ssl: false,
         };
-      }),
-    ),
-  );
-  return routes.sort((a, b) => a.domain.localeCompare(b.domain));
+        existing.listens.push(...route.listens);
+        existing.proxies.push(...route.proxies);
+        existing.ssl = existing.ssl || route.ssl;
+        byDomainAndFile.set(key, existing);
+      }
+    }
+  }
+
+  return [...byDomainAndFile.values()]
+    .map((route) => {
+      const uniqueProxies = [...new Set(route.proxies)];
+      const uniqueListens = [...new Set(route.listens)];
+      const certificate = certificates.find((cert) => cert.domains.includes(route.domain));
+      return {
+        ...route,
+        listens: uniqueListens,
+        proxies: uniqueProxies,
+        target: summarizeRouteTarget(uniqueProxies),
+        targetPort: extractTargetPort(uniqueProxies),
+        certificate: certificate
+          ? {
+              ...certificate,
+              summary: certificate.expiry || certificate.name,
+            }
+          : null,
+      };
+    })
+    .sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.domain.localeCompare(b.domain));
 }
 
 function buildProxyLocation(targetPort) {
@@ -390,9 +415,8 @@ async function upsertRoute(domain, targetPort) {
   return { file: fileName, domain, targetPort };
 }
 
-async function parseCertificates() {
-  const { stdout } = await hostShell('certbot certificates || true', { timeout: 60000 });
-  const sections = stdout.split(/- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -/g);
+function parseCertificateOutput(output) {
+  const sections = output.split(/- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -/g);
   return sections
     .map((section) => {
       const name = section.match(/Certificate Name:\s*(.+)/)?.[1]?.trim();
@@ -407,6 +431,33 @@ async function parseCertificates() {
       };
     })
     .filter(Boolean);
+}
+
+async function parseRenewalCertificates() {
+  const renewalDir = hostPath('etc/letsencrypt/renewal');
+  const entries = await safeReadDir(renewalDir);
+  const certificates = [];
+
+  for (const entry of entries.filter((item) => item.isFile() && item.name.endsWith('.conf'))) {
+    const content = await readNginxFile(path.join(renewalDir, entry.name));
+    const name = entry.name.replace(/\.conf$/, '');
+    const domains = content.match(/^\s*domains\s*=\s*(.+)$/m)?.[1]?.split(/\s*,\s*/).filter(Boolean) || [name];
+    certificates.push({
+      name,
+      domains,
+      expiry: '',
+      certificatePath: `/etc/letsencrypt/live/${name}/fullchain.pem`,
+      privateKeyPath: `/etc/letsencrypt/live/${name}/privkey.pem`,
+    });
+  }
+
+  return certificates;
+}
+
+async function parseCertificates() {
+  const { stdout, stderr } = await hostShell('certbot certificates || true', { timeout: 60000 });
+  const fromCertbot = parseCertificateOutput(`${stdout}\n${stderr}`);
+  return fromCertbot.length ? fromCertbot : parseRenewalCertificates();
 }
 
 async function issueCertificate(domain, email) {
