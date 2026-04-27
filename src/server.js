@@ -160,6 +160,15 @@ function mapDockerPorts(networkPorts = {}) {
   });
 }
 
+function dockerProjectPath(container) {
+  const labels = container.Config?.Labels || {};
+  const composePath = labels['com.docker.compose.project.working_dir'];
+  if (composePath) return composePath;
+
+  const bindMount = (container.Mounts || []).find((mount) => mount.Type === 'bind' && mount.Source);
+  return bindMount?.Source || '';
+}
+
 async function listContainers() {
   const { stdout } = await hostShell(
     'ids=$(docker ps -aq); if [ -z "$ids" ]; then echo "[]"; else docker inspect -- $ids; fi',
@@ -176,6 +185,7 @@ async function listContainers() {
       state: container.State?.Status || '',
       status: container.State?.Status || '',
       created: container.Created || '',
+      projectPath: dockerProjectPath(container),
       ports: mapDockerPorts(container.NetworkSettings?.Ports || {}),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -209,6 +219,10 @@ function stripComments(line) {
   return hashIndex === -1 ? line : line.slice(0, hashIndex);
 }
 
+function uniq(values = []) {
+  return [...new Set(values.filter(Boolean))];
+}
+
 function parseServerBlocks(content) {
   const blocks = [];
   const serverRegex = /server\s*\{/g;
@@ -237,8 +251,9 @@ function parseNginxRoutes(content) {
     );
     const listens = [...clean.matchAll(/listen\s+([^;]+);/g)].map((item) => item[1].trim());
     const proxies = [...clean.matchAll(/proxy_pass\s+([^;]+);/g)].map((item) => item[1].trim());
+    const sslCertificatePaths = [...clean.matchAll(/ssl_certificate\s+([^;]+);/g)].map((item) => item[1].trim());
     const ssl = /\bssl_certificate\b/.test(clean) || listens.some((listen) => /\b443\b/.test(listen));
-    return { names, listens, proxies, ssl };
+    return { names, listens, proxies, sslCertificatePaths, ssl };
   });
 }
 
@@ -320,10 +335,12 @@ async function listRoutesWithCertificates() {
           enabled: site.enabled,
           listens: [],
           proxies: [],
+          sslCertificatePaths: [],
           ssl: false,
         };
         existing.listens.push(...route.listens);
         existing.proxies.push(...route.proxies);
+        existing.sslCertificatePaths.push(...route.sslCertificatePaths);
         existing.ssl = existing.ssl || route.ssl;
         byDomainAndFile.set(key, existing);
       }
@@ -334,11 +351,17 @@ async function listRoutesWithCertificates() {
     .map((route) => {
       const uniqueProxies = [...new Set(route.proxies)];
       const uniqueListens = [...new Set(route.listens)];
-      const certificate = certificates.find((cert) => cert.domains.includes(route.domain));
+      const uniqueSslCertificatePaths = uniq(route.sslCertificatePaths);
+      const certificate = certificates.find(
+        (cert) =>
+          cert.domains.includes(route.domain) ||
+          uniqueSslCertificatePaths.some((certPath) => cert.certificatePath === certPath),
+      );
       return {
         ...route,
         listens: uniqueListens,
         proxies: uniqueProxies,
+        sslCertificatePaths: uniqueSslCertificatePaths,
         target: summarizeRouteTarget(uniqueProxies),
         targetPort: extractTargetPort(uniqueProxies),
         certificate: certificate
@@ -433,6 +456,18 @@ function parseCertificateOutput(output) {
     .filter(Boolean);
 }
 
+function certificateFromPath(certificatePath, domains = []) {
+  const match = certificatePath.match(/\/etc\/letsencrypt\/live\/([^/]+)\/fullchain\.pem$/);
+  const name = match?.[1] || domains[0] || certificatePath;
+  return {
+    name,
+    domains: domains.length ? domains : [name],
+    expiry: '',
+    certificatePath,
+    privateKeyPath: `/etc/letsencrypt/live/${name}/privkey.pem`,
+  };
+}
+
 async function parseRenewalCertificates() {
   const renewalDir = hostPath('etc/letsencrypt/renewal');
   const entries = await safeReadDir(renewalDir);
@@ -454,10 +489,53 @@ async function parseRenewalCertificates() {
   return certificates;
 }
 
+async function parseLiveCertificates() {
+  const liveDir = hostPath('etc/letsencrypt/live');
+  const entries = await safeReadDir(liveDir);
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => certificateFromPath(`/etc/letsencrypt/live/${entry.name}/fullchain.pem`, [entry.name]));
+}
+
+async function parseNginxCertificateReferences() {
+  const sites = await listNginxSites();
+  return sites.flatMap((site) =>
+    site.routes.flatMap((route) =>
+      route.sslCertificatePaths.map((certificatePath) => certificateFromPath(certificatePath, route.names)),
+    ),
+  );
+}
+
+function mergeCertificates(certificates) {
+  const byPathOrName = new Map();
+
+  for (const certificate of certificates) {
+    const key = certificate.certificatePath || certificate.name;
+    const existing = byPathOrName.get(key);
+    if (!existing) {
+      byPathOrName.set(key, {
+        ...certificate,
+        domains: uniq(certificate.domains),
+      });
+      continue;
+    }
+
+    existing.domains = uniq([...existing.domains, ...certificate.domains]);
+    existing.expiry ||= certificate.expiry;
+    existing.privateKeyPath ||= certificate.privateKeyPath;
+  }
+
+  return [...byPathOrName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 async function parseCertificates() {
   const { stdout, stderr } = await hostShell('certbot certificates || true', { timeout: 60000 });
-  const fromCertbot = parseCertificateOutput(`${stdout}\n${stderr}`);
-  return fromCertbot.length ? fromCertbot : parseRenewalCertificates();
+  return mergeCertificates([
+    ...parseCertificateOutput(`${stdout}\n${stderr}`),
+    ...(await parseRenewalCertificates()),
+    ...(await parseLiveCertificates()),
+    ...(await parseNginxCertificateReferences()),
+  ]);
 }
 
 async function issueCertificate(domain, email) {

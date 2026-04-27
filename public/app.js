@@ -136,7 +136,11 @@ function renderContainers() {
     ? appState.containers.map(
       (container) => `
         <tr>
-          <td><strong>${escapeHtml(container.names.join(", "))}</strong><div class="subtle">${escapeHtml(container.image)}</div></td>
+          <td>
+            <strong>${escapeHtml(container.names.join(", "))}</strong>
+            <div class="subtle">${escapeHtml(container.image)}</div>
+            ${container.projectPath ? `<div class="subtle path-text">${escapeHtml(container.projectPath)}</div>` : ""}
+          </td>
           <td>${statusBadge(container.state === "running")}<div class="subtle">${container.status}</div></td>
           <td><div class="pill-list">${renderPorts(container.ports)}</div></td>
           <td class="actions">
