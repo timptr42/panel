@@ -104,6 +104,29 @@ server {
 
 Перед перезагрузкой nginx всегда выполняется `nginx -t`.
 
+## Если открывается 502 Bad Gateway
+
+502 от nginx означает, что домен ведет на сервер, но приложение панели на `127.0.0.1:7777` не отвечает.
+
+Проверьте:
+
+```bash
+cd /opt/panel
+sudo docker compose ps
+sudo docker compose logs --tail=120 panel
+sudo ss -ltnp | grep 7777
+```
+
+Повторная установка/перезапуск:
+
+```bash
+cd /opt/panel
+sudo git pull origin main
+sudo bash scripts/install.sh
+```
+
+Install-скрипт сам ожидает healthcheck контейнера и покажет последние логи, если панель не стартовала.
+
 ## Локальная проверка
 
 ```bash

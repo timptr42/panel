@@ -12,5 +12,13 @@ services:
     environment:
       PORT: 7777
       HOST_ROOT: /host
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:7777/api/me').then(r => process.exit(r.status === 401 ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     volumes:
       - /:/host:rw

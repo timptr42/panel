@@ -34,14 +34,19 @@ write_env_value() {
 
   tmp_file="$(mktemp)"
   if [[ -f "$ENV_FILE" ]] && awk -F= -v key="$key" '$1 == key { found = 1 } END { exit(found ? 0 : 1) }' "$ENV_FILE"; then
-    awk -F= -v key="$key" -v value="$value" 'BEGIN { written = 0 } $1 == key && !written { print key "=" value; written = 1; next } { print }' "$ENV_FILE" >"$tmp_file"
+    awk -F= -v key="$key" -v value="$(quote_env_value "$value")" 'BEGIN { written = 0 } $1 == key && !written { print key "=" value; written = 1; next } { print }' "$ENV_FILE" >"$tmp_file"
   else
     [[ -f "$ENV_FILE" ]] && cp "$ENV_FILE" "$tmp_file"
-    printf '%s=%s\n' "$key" "$value" >>"$tmp_file"
+    printf '%s=%s\n' "$key" "$(quote_env_value "$value")" >>"$tmp_file"
   fi
 
   install -m 600 "$tmp_file" "$ENV_FILE"
   rm -f "$tmp_file"
+}
+
+quote_env_value() {
+  local value="$1"
+  printf "'%s'" "${value//\'/\'\\\'\'}"
 }
 
 generate_secret() {
@@ -113,6 +118,31 @@ prepare_env() {
   [[ -n "$(read_env_value ALLOW_ANY_DOMAIN)" ]] || write_env_value ALLOW_ANY_DOMAIN "false"
 }
 
+show_panel_diagnostics() {
+  echo "Panel did not become available on 127.0.0.1:${PORT}." >&2
+  echo "Docker Compose status:" >&2
+  docker compose ps >&2 || true
+  echo "Panel container logs:" >&2
+  docker logs --tail=120 panel >&2 || true
+  echo "Listening ports that mention ${PORT}:" >&2
+  ss -ltnp 2>/dev/null | grep ":${PORT}" >&2 || true
+}
+
+wait_for_panel() {
+  local attempts=30
+  local attempt
+
+  for attempt in $(seq 1 "$attempts"); do
+    if timeout 1 bash -c ":</dev/tcp/127.0.0.1/${PORT}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  show_panel_diagnostics
+  exit 1
+}
+
 if ! docker compose version >/dev/null 2>&1; then
   echo "Docker Compose plugin is required: docker compose" >&2
   exit 1
@@ -120,6 +150,7 @@ fi
 
 prepare_env
 docker compose up -d --build
+wait_for_panel
 
 cat >/etc/nginx/sites-available/"$CONF_NAME" <<NGINX
 server {
