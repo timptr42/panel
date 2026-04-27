@@ -22,11 +22,18 @@ const domainPattern = allowAnyDomain
   ? /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i
   : /^[a-z0-9-]+\.timptr\.ru$/i;
 
-const panelPassword = process.env.PANEL_PASSWORD;
+function readPanelPassword() {
+  if (process.env.PANEL_PASSWORD_B64) {
+    return Buffer.from(process.env.PANEL_PASSWORD_B64, 'base64').toString('utf8');
+  }
+  return process.env.PANEL_PASSWORD;
+}
+
+const panelPassword = readPanelPassword();
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 
 if (!panelPassword) {
-  console.error('PANEL_PASSWORD is required');
+  console.error('PANEL_PASSWORD_B64 or PANEL_PASSWORD is required');
   process.exit(1);
 }
 

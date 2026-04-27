@@ -83,7 +83,8 @@ server {
 | Переменная | Значение по умолчанию | Описание |
 | --- | --- | --- |
 | `PORT` | `7777` | Порт внутри контейнера |
-| `PANEL_PASSWORD` | - | Пароль администратора |
+| `PANEL_PASSWORD_B64` | - | Пароль администратора в base64; installer заполняет автоматически |
+| `PANEL_PASSWORD` | - | Legacy-вариант пароля администратора, используется только если нет `PANEL_PASSWORD_B64` |
 | `SESSION_SECRET` | - | Секрет cookie-сессии |
 | `COOKIE_SECURE` | `false` | Оставьте `false` для HTTP. Поставьте `true` только после выпуска HTTPS-сертификата |
 | `PANEL_BUILD` | git commit | Build id, который показывается в title и UI |
@@ -144,10 +145,11 @@ sudo bash scripts/install.sh
 ```bash
 cd /opt/panel
 sudo sed -i '/^PANEL_PASSWORD=/d' .env
+sudo sed -i '/^PANEL_PASSWORD_B64=/d' .env
 sudo bash scripts/install.sh
 ```
 
-Пароль хранится в `.env` как обычное значение `PANEL_PASSWORD=...`; не добавляйте вокруг него кавычки вручную.
+Installer хранит пароль в `.env` как `PANEL_PASSWORD_B64=...`, поэтому пароль может содержать любые символы кроме перевода строки.
 
 ## Локальная проверка
 

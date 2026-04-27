@@ -37,6 +37,10 @@ read_env_value() {
   ' "$ENV_FILE"
 }
 
+base64_encode() {
+  printf '%s' "$1" | base64 | tr -d '\n'
+}
+
 sanitize_env_file() {
   [[ -f "$ENV_FILE" ]] || return 0
 
@@ -69,11 +73,6 @@ write_env_value() {
   local value="$2"
   local tmp_file
 
-  if ! is_safe_env_value "$value"; then
-    echo "Unsafe value for $key. Use only letters, digits and ._@%+,:/!-" >&2
-    exit 1
-  fi
-
   tmp_file="$(mktemp)"
   if [[ -f "$ENV_FILE" ]] && awk -F= -v key="$key" '$1 == key { found = 1 } END { exit(found ? 0 : 1) }' "$ENV_FILE"; then
     awk -F= -v key="$key" -v value="$value" 'BEGIN { written = 0 } $1 == key && !written { print key "=" value; written = 1; next } { print }' "$ENV_FILE" >"$tmp_file"
@@ -84,11 +83,6 @@ write_env_value() {
 
   install -m 600 "$tmp_file" "$ENV_FILE"
   rm -f "$tmp_file"
-}
-
-is_safe_env_value() {
-  local value="$1"
-  [[ "$value" =~ ^[A-Za-z0-9._@%+,:/!-]+$ ]]
 }
 
 generate_secret() {
@@ -120,8 +114,6 @@ prompt_password() {
       echo "Password cannot be empty." >&2
     elif [[ "$password" != "$confirmation" ]]; then
       echo "Passwords do not match." >&2
-    elif ! is_safe_env_value "$password"; then
-      echo "Use only letters, digits and these symbols: . _ @ % + , : / ! -" >&2
     else
       printf '%s' "$password"
       return
@@ -142,11 +134,15 @@ prepare_env() {
   sanitize_env_file
 
   local current_password
+  local current_password_b64
   current_password="$(read_env_value PANEL_PASSWORD)"
+  current_password_b64="$(read_env_value PANEL_PASSWORD_B64)"
   if [[ -n "${PANEL_PASSWORD:-}" ]]; then
-    write_env_value PANEL_PASSWORD "$PANEL_PASSWORD"
-  elif [[ -z "$current_password" || "$current_password" == "change-me" ]]; then
-    write_env_value PANEL_PASSWORD "$(prompt_password)"
+    write_env_value PANEL_PASSWORD_B64 "$(base64_encode "$PANEL_PASSWORD")"
+    write_env_value PANEL_PASSWORD ""
+  elif [[ -z "$current_password_b64" && ( -z "$current_password" || "$current_password" == "change-me" ) ]]; then
+    write_env_value PANEL_PASSWORD_B64 "$(base64_encode "$(prompt_password)")"
+    write_env_value PANEL_PASSWORD ""
   fi
 
   local current_secret
