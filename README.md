@@ -131,6 +131,14 @@ sudo bash scripts/install.sh
 
 Install-скрипт сам ожидает healthcheck контейнера и покажет последние логи, если панель не стартовала.
 
+Если `docker compose` сообщает `failed to read /opt/panel/.env`, удалите поврежденные строки и запустите installer еще раз:
+
+```bash
+cd /opt/panel
+sudo sed -i '/^[A-Za-z_][A-Za-z0-9_]*=/!d' .env
+sudo bash scripts/install.sh
+```
+
 ## Локальная проверка
 
 ```bash

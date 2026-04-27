@@ -24,7 +24,36 @@ done
 read_env_value() {
   local key="$1"
   [[ -f "$ENV_FILE" ]] || return 0
-  awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }' "$ENV_FILE"
+  awk -F= -v key="$key" '
+    $1 == key {
+      sub(/^[^=]*=/, "")
+      if ($0 ~ /^'\''.*'\''$/ || $0 ~ /^".*"$/) {
+        print substr($0, 2, length($0) - 2)
+      } else {
+        print
+      }
+      exit
+    }
+  ' "$ENV_FILE"
+}
+
+sanitize_env_file() {
+  [[ -f "$ENV_FILE" ]] || return 0
+
+  local tmp_file
+  tmp_file="$(mktemp)"
+
+  awk '
+    /^[[:space:]]*$/ { print; next }
+    /^[[:space:]]*#/ { print; next }
+    /^[A-Za-z_][A-Za-z0-9_]*=/ { print; next }
+    {
+      printf "Dropping invalid .env line: %s\n", $0 > "/dev/stderr"
+    }
+  ' "$ENV_FILE" >"$tmp_file"
+
+  install -m 600 "$tmp_file" "$ENV_FILE"
+  rm -f "$tmp_file"
 }
 
 write_env_value() {
@@ -95,6 +124,7 @@ prepare_env() {
   else
     chmod 600 "$ENV_FILE"
   fi
+  sanitize_env_file
 
   local current_password
   current_password="$(read_env_value PANEL_PASSWORD)"
