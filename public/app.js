@@ -234,10 +234,35 @@ function syncRouteCertificateFields() {
   $("#route-email-wrap").classList.toggle("hidden", !enabled);
 }
 
+function setRouteProgress(items = []) {
+  const progress = $("#route-progress");
+  const list = $("#route-progress-list");
+  if (!items.length) {
+    progress.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  progress.hidden = false;
+  list.innerHTML = items
+    .map((item) => `<li class="progress-step ${escapeHtml(item.status)}">${escapeHtml(item.text)}</li>`)
+    .join("");
+}
+
+function setRouteFormBusy(isBusy) {
+  $("#route-submit").disabled = isBusy;
+  $("#route-cancel").disabled = isBusy;
+  $("#route-domain").disabled = isBusy || Boolean(appState.selectedRoute);
+  $("#route-port").disabled = isBusy;
+  $("#route-issue-certificate").disabled = isBusy;
+  $("#route-email").disabled = isBusy;
+}
+
 function closeRouteDialog() {
   $("#route-dialog").close();
   appState.selectedRoute = null;
   $("#route-domain").disabled = false;
+  setRouteFormBusy(false);
+  setRouteProgress();
 }
 
 function openCertDialog(domain) {
@@ -290,11 +315,25 @@ async function saveRoute(event) {
   const port = Number($("#route-port").value);
   const issueCertificate = $("#route-issue-certificate").checked;
   const email = $("#route-email").value.trim();
+  const steps = [
+    { text: "Создаем или обновляем nginx route", status: "active" },
+    ...(issueCertificate ? [{ text: "Выпускаем HTTPS-сертификат через certbot", status: "pending" }] : []),
+    { text: "Перезагружаем nginx и обновляем dashboard", status: "pending" },
+  ];
   try {
+    setRouteFormBusy(true);
+    setRouteProgress(steps);
     await api("/api/nginx/routes", {
       method: "POST",
       body: JSON.stringify({ domain, port, issueCertificate, email }),
     });
+    steps[0].status = "done";
+    if (issueCertificate) steps[1].status = "done";
+    steps[steps.length - 1].status = "active";
+    setRouteProgress(steps);
+    await refreshAll();
+    steps[steps.length - 1].status = "done";
+    setRouteProgress(steps);
     closeRouteDialog();
     showMessage(
       issueCertificate
@@ -302,9 +341,14 @@ async function saveRoute(event) {
         : "Маршрут сохранен и nginx перезагружен",
       "success",
     );
-    await refreshAll();
   } catch (error) {
+    const activeStep = steps.find((step) => step.status === "active");
+    if (activeStep) activeStep.status = "error";
+    steps.push({ text: error.message, status: "error" });
+    setRouteProgress(steps);
     showMessage(error.message, "error");
+  } finally {
+    setRouteFormBusy(false);
   }
 }
 
