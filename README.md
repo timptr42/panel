@@ -89,6 +89,7 @@ server {
 | `COOKIE_SECURE` | `false` | Оставьте `false` для HTTP. Поставьте `true` только после выпуска HTTPS-сертификата |
 | `TRUST_PROXY` | `true` | Доверять `X-Forwarded-Proto` от nginx, чтобы secure-cookie работали за reverse proxy |
 | `PANEL_BUILD` | git commit | Build id, который показывается в title и UI |
+| `PANEL_VERSION` | package version | Версия приложения, которую показывает title и UI |
 | `HOST_ROOT` | `/host` | Mount host root внутри контейнера |
 | `HOST_COMMAND_MODE` | `nsenter` | `nsenter` для контейнера, `direct` для локальной разработки |
 | `NGINX_MANAGED_PREFIX` | `panel-managed-` | Префикс nginx-конфигов, которые создает панель |

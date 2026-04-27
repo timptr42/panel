@@ -167,6 +167,8 @@ prepare_env() {
 
   [[ -n "$(read_env_value NGINX_MANAGED_PREFIX)" ]] || write_env_value NGINX_MANAGED_PREFIX "panel-managed-"
   [[ -n "$(read_env_value ALLOW_ANY_DOMAIN)" ]] || write_env_value ALLOW_ANY_DOMAIN "false"
+  write_env_value PANEL_VERSION "$(node -e "console.log(require('./package.json').version)" 2>/dev/null || echo dev)"
+  write_env_value PANEL_BUILD "$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
 }
 
 show_panel_diagnostics() {
@@ -200,7 +202,7 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 prepare_env
-PANEL_BUILD="$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)" docker compose up -d --build
+docker compose up -d --build
 wait_for_panel
 
 cat >/etc/nginx/sites-available/"$CONF_NAME" <<NGINX

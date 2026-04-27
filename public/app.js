@@ -57,7 +57,8 @@ async function checkAuth() {
 function renderMeta(meta) {
   const version = meta?.version || "dev";
   const build = meta?.build || "local";
-  const label = `v${version} (${build})`;
+  const cookie = meta?.cookieSecure ? "secure-cookie" : "plain-cookie";
+  const label = `v${version} (${build}, ${cookie})`;
   document.title = `timptr panel ${label}`;
   document.querySelectorAll("[data-version-label]").forEach((element) => {
     element.textContent = label;

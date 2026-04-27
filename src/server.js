@@ -411,7 +411,12 @@ async function issueCertificate(domain, email) {
 }
 
 app.get('/api/meta', (req, res) => {
-  res.json({ version: appVersion, build: appBuild });
+  res.json({
+    version: appVersion,
+    build: appBuild,
+    cookieSecure: process.env.COOKIE_SECURE === 'true',
+    trustProxy: app.get('trust proxy'),
+  });
 });
 
 app.get('/api/me', (req, res) => {
