@@ -89,7 +89,7 @@ server {
 | `SESSION_SECRET` | - | Секрет cookie-сессии |
 | `COOKIE_SECURE` | `true` | Панель ожидает HTTPS-only режим; installer включает secure-cookie после certbot |
 | `CERTBOT_EMAIL` | - | Email для Let's Encrypt; если пусто, installer спросит интерактивно |
-| `TRUST_PROXY` | `true` | Доверять `X-Forwarded-Proto` от nginx, чтобы secure-cookie работали за reverse proxy |
+| `TRUST_PROXY` | `1` | Доверять `X-Forwarded-Proto` от nginx, чтобы secure-cookie работали за reverse proxy |
 | `PANEL_BUILD` | git commit | Build id, который показывается в title и UI |
 | `PANEL_VERSION` | package version | Версия приложения, которую показывает title и UI |
 | `HOST_ROOT` | `/host` | Mount host root внутри контейнера |

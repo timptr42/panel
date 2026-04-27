@@ -29,15 +29,25 @@ function readPanelPassword() {
   return process.env.PANEL_PASSWORD;
 }
 
+function parseTrustProxy(value) {
+  if (value === undefined || value === '') return 1;
+  if (value === 'true') return 1;
+  if (value === 'false') return false;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
 const panelPassword = readPanelPassword();
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const cookieSecure = process.env.COOKIE_SECURE === 'true';
+const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
 
 if (!panelPassword) {
   console.error('PANEL_PASSWORD_B64 or PANEL_PASSWORD is required');
   process.exit(1);
 }
 
-app.set('trust proxy', Number(process.env.TRUST_PROXY || 1));
+app.set('trust proxy', trustProxy);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '1mb' }));
 app.use(
@@ -46,10 +56,11 @@ app.use(
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
+    proxy: cookieSecure,
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.COOKIE_SECURE === 'true',
+      secure: cookieSecure,
       maxAge: 1000 * 60 * 60 * 12,
     },
   }),
@@ -414,8 +425,11 @@ app.get('/api/meta', (req, res) => {
   res.json({
     version: appVersion,
     build: appBuild,
-    cookieSecure: process.env.COOKIE_SECURE === 'true',
+    cookieSecure,
     trustProxy: app.get('trust proxy'),
+    requestSecure: req.secure,
+    requestProtocol: req.protocol,
+    forwardedProto: req.get('x-forwarded-proto') || '',
   });
 });
 
