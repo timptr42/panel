@@ -45,7 +45,6 @@ async function checkAuth() {
     $("#login-view").hidden = true;
     $("#app-view").hidden = false;
     $("#login-message").hidden = true;
-    await refreshAll();
     return true;
   } catch {
     $("#login-view").hidden = false;
@@ -88,7 +87,9 @@ async function login(event) {
         "Пароль принят, но браузер не сохранил сессию. Откройте панель по HTTPS и проверьте, что сертификат выдан именно для panel.timptr.ru.",
         "error",
       );
+      return;
     }
+    await loadDashboard();
   } catch (error) {
     showMessage(error.message, "error");
   }
@@ -213,6 +214,14 @@ async function refreshAll() {
   renderCertificates();
 }
 
+async function loadDashboard() {
+  try {
+    await refreshAll();
+  } catch (error) {
+    showMessage(`Вход выполнен, но данные панели не загрузились: ${error.message}`, "error");
+  }
+}
+
 async function handleContainerAction(event) {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
@@ -285,7 +294,7 @@ document.addEventListener("click", (event) => {
 
 $("#login-form").addEventListener("submit", login);
 $("#logout").addEventListener("click", logout);
-$("#refresh").addEventListener("click", () => refreshAll().catch((error) => showMessage(error.message, "error")));
+$("#refresh").addEventListener("click", loadDashboard);
 $("#new-route").addEventListener("click", () => openRouteDialog());
 $("#route-form").addEventListener("submit", saveRoute);
 $("#route-cancel").addEventListener("click", closeRouteDialog);
@@ -294,4 +303,8 @@ $("#cert-cancel").addEventListener("click", () => $("#cert-dialog").close());
 $("#containers-body").addEventListener("click", handleContainerAction);
 $("#renew-all").addEventListener("click", renewAllCertificates);
 
-loadMeta().finally(checkAuth);
+loadMeta().finally(async () => {
+  if (await checkAuth()) {
+    await loadDashboard();
+  }
+});
