@@ -304,13 +304,8 @@ async function listRoutesWithCertificates() {
   return routes.sort((a, b) => a.domain.localeCompare(b.domain));
 }
 
-function buildManagedNginxConfig(domain, targetPort) {
-  return `server {
-    listen 80;
-    listen [::]:80;
-    server_name ${domain};
-
-    location / {
+function buildProxyLocation(targetPort) {
+  return `    location / {
         proxy_pass http://127.0.0.1:${targetPort};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -319,14 +314,47 @@ function buildManagedNginxConfig(domain, targetPort) {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-    }
+    }`;
+}
+
+function buildManagedNginxConfig(domain, targetPort, certificate = null) {
+  if (certificate?.certificatePath && certificate?.privateKeyPath) {
+    return `server {
+    listen 80;
+    listen [::]:80;
+    server_name ${domain};
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name ${domain};
+
+    ssl_certificate ${certificate.certificatePath};
+    ssl_certificate_key ${certificate.privateKeyPath};
+
+${buildProxyLocation(targetPort)}
+}
+`;
+  }
+
+  return `server {
+    listen 80;
+    listen [::]:80;
+    server_name ${domain};
+
+${buildProxyLocation(targetPort)}
 }
 `;
 }
 
 async function upsertRoute(domain, targetPort) {
   const fileName = `${managedPrefix}${domain}.conf`;
-  const config = buildManagedNginxConfig(domain, targetPort);
+  const certificates = await parseCertificates();
+  const certificate = certificates.find((item) => item.domains.includes(domain));
+  const config = buildManagedNginxConfig(domain, targetPort, certificate);
   const encoded = Buffer.from(config, 'utf8').toString('base64');
   await hostShell(
     [
@@ -356,6 +384,19 @@ async function parseCertificates() {
       };
     })
     .filter(Boolean);
+}
+
+async function issueCertificate(domain, email) {
+  const { stdout, stderr } = await hostShell(
+    [
+      'certbot --nginx',
+      `-d ${shellEscape(domain)}`,
+      `-m ${shellEscape(email)}`,
+      '--agree-tos --non-interactive --redirect',
+    ].join(' '),
+    { timeout: 180000, maxBuffer: 1024 * 1024 * 20 },
+  );
+  return stdout || stderr;
 }
 
 app.get('/api/me', (req, res) => {
