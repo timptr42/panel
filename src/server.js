@@ -169,6 +169,24 @@ function dockerProjectPath(container) {
   return bindMount?.Source || '';
 }
 
+function dockerPaths(container) {
+  const labels = container.Config?.Labels || {};
+  return {
+    project: labels['com.docker.compose.project.working_dir'] || '',
+    composeFiles: (labels['com.docker.compose.project.config_files'] || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+    binds: (container.Mounts || [])
+      .filter((mount) => mount.Type === 'bind' && mount.Source)
+      .map((mount) => ({
+        source: mount.Source,
+        destination: mount.Destination || '',
+        mode: mount.RW === false ? 'ro' : 'rw',
+      })),
+  };
+}
+
 async function listContainers() {
   const { stdout } = await hostShell(
     'ids=$(docker ps -aq); if [ -z "$ids" ]; then echo "[]"; else docker inspect -- $ids; fi',
@@ -186,6 +204,7 @@ async function listContainers() {
       status: container.State?.Status || '',
       created: container.Created || '',
       projectPath: dockerProjectPath(container),
+      paths: dockerPaths(container),
       ports: mapDockerPorts(container.NetworkSettings?.Ports || {}),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));

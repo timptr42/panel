@@ -124,6 +124,20 @@ function renderPorts(ports) {
     .join("");
 }
 
+function renderPaths(container) {
+  const rows = [];
+  if (container.projectPath) {
+    rows.push(`<div><span class="path-label">project</span>${escapeHtml(container.projectPath)}</div>`);
+  }
+  for (const file of container.composeFiles || []) {
+    rows.push(`<div><span class="path-label">compose</span>${escapeHtml(file)}</div>`);
+  }
+  for (const mount of container.bindMounts || []) {
+    rows.push(`<div><span class="path-label">mount</span>${escapeHtml(mount.source)} -> ${escapeHtml(mount.destination)}</div>`);
+  }
+  return rows.length ? `<div class="path-list">${rows.join("")}</div>` : "<span class=\"muted-text\">нет host-путей</span>";
+}
+
 function renderSummary() {
   $("#summary-containers").textContent = `${appState.containers.filter((item) => item.running).length}/${appState.containers.length}`;
   $("#summary-routes").textContent = `${appState.routes.filter((item) => item.enabled).length}/${appState.routes.length}`;
@@ -139,9 +153,9 @@ function renderContainers() {
           <td>
             <strong>${escapeHtml(container.names.join(", "))}</strong>
             <div class="subtle">${escapeHtml(container.image)}</div>
-            ${container.projectPath ? `<div class="subtle path-text">${escapeHtml(container.projectPath)}</div>` : ""}
           </td>
           <td>${statusBadge(container.state === "running")}<div class="subtle">${container.status}</div></td>
+          <td>${renderPaths(container)}</td>
           <td><div class="pill-list">${renderPorts(container.ports)}</div></td>
           <td class="actions">
             <button data-action="start" data-id="${escapeHtml(container.id)}" ${container.state === "running" ? "disabled" : ""}>Старт</button>
@@ -152,7 +166,7 @@ function renderContainers() {
       `,
     )
     .join("")
-    : "<tr><td colspan=\"4\" class=\"muted-text\">Контейнеры не найдены</td></tr>";
+    : "<tr><td colspan=\"5\" class=\"muted-text\">Контейнеры не найдены</td></tr>";
 }
 
 function renderRoutes() {

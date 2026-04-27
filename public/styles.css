@@ -231,10 +231,27 @@ th {
 }
 
 .path-text {
-  max-width: 360px;
+  max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.path-list {
+  display: grid;
+  gap: 3px;
+  min-width: 240px;
+}
+
+.path-row {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.path-row strong {
+  color: #cbd5e1;
+  font-weight: 600;
 }
 
 .port-map strong {
