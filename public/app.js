@@ -85,7 +85,7 @@ async function login(event) {
     const authenticated = await checkAuth();
     if (!authenticated) {
       showMessage(
-        "Пароль принят, но браузер не сохранил сессию. Если панель открыта по HTTP, проверьте COOKIE_SECURE=false в /opt/panel/.env и перезапустите docker compose.",
+        "Пароль принят, но браузер не сохранил сессию. Откройте панель по HTTPS и проверьте, что сертификат выдан именно для panel.timptr.ru.",
         "error",
       );
     }

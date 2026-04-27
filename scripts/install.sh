@@ -121,6 +121,25 @@ prompt_password() {
   done
 }
 
+prompt_email() {
+  local email=""
+
+  if [[ ! -t 0 ]]; then
+    echo "CERTBOT_EMAIL is missing and no interactive terminal is available." >&2
+    echo "Run interactively or pass CERTBOT_EMAIL=... sudo -E bash scripts/install.sh" >&2
+    exit 1
+  fi
+
+  while true; do
+    read -rp "Email for Let's Encrypt certificates: " email
+    if [[ "$email" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
+      printf '%s' "$email"
+      return
+    fi
+    echo "Enter a valid email address." >&2
+  done
+}
+
 prepare_env() {
   if [[ ! -f "$ENV_FILE" ]]; then
     if [[ -f "$APP_DIR/.env.example" ]]; then
@@ -167,6 +186,7 @@ prepare_env() {
 
   [[ -n "$(read_env_value NGINX_MANAGED_PREFIX)" ]] || write_env_value NGINX_MANAGED_PREFIX "panel-managed-"
   [[ -n "$(read_env_value ALLOW_ANY_DOMAIN)" ]] || write_env_value ALLOW_ANY_DOMAIN "false"
+  [[ -n "$(read_env_value CERTBOT_EMAIL)" ]] || [[ -z "${CERTBOT_EMAIL:-}" ]] || write_env_value CERTBOT_EMAIL "$CERTBOT_EMAIL"
   write_env_value PANEL_VERSION "$(node -e "console.log(require('./package.json').version)" 2>/dev/null || echo dev)"
   write_env_value PANEL_BUILD "$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
 }
@@ -194,6 +214,26 @@ wait_for_panel() {
 
   show_panel_diagnostics
   exit 1
+}
+
+configure_https() {
+  local email
+  email="${CERTBOT_EMAIL:-$(read_env_value CERTBOT_EMAIL)}"
+  if [[ -z "$email" ]]; then
+    email="$(prompt_email)"
+    write_env_value CERTBOT_EMAIL "$email"
+  fi
+
+  certbot --nginx \
+    --cert-name "$DOMAIN" \
+    -d "$DOMAIN" \
+    -m "$email" \
+    --agree-tos \
+    --non-interactive \
+    --redirect
+
+  write_env_value COOKIE_SECURE "true"
+  docker compose up -d
 }
 
 if ! docker compose version >/dev/null 2>&1; then
@@ -227,7 +267,9 @@ NGINX
 ln -sfn /etc/nginx/sites-available/"$CONF_NAME" /etc/nginx/sites-enabled/"$CONF_NAME"
 nginx -t
 systemctl reload nginx
+configure_https
+nginx -t
+systemctl reload nginx
 
 echo "Panel container is running on localhost:${PORT}"
-echo "Open http://${DOMAIN} and issue HTTPS certificate from the panel or run:"
-echo "certbot --nginx -d ${DOMAIN} -m YOUR_EMAIL --agree-tos --non-interactive --redirect"
+echo "Open https://${DOMAIN}"

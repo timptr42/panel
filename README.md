@@ -41,11 +41,12 @@ sudo bash scripts/install.sh
 4. сгенерирует `SESSION_SECRET` для подписи cookie-сессии;
 5. соберет и запустит контейнер панели на `127.0.0.1:7777`;
 6. создаст nginx-маршрут `panel.timptr.ru -> 127.0.0.1:7777`;
-7. выполнит `nginx -t` и `systemctl reload nginx`.
+7. выпустит/установит HTTPS-сертификат через `certbot --nginx --redirect`;
+8. включит `COOKIE_SECURE=true` и перезапустит контейнер.
 
 Build id берется из текущего git commit и отображается в title страницы, например `timptr panel v1.0.0 (abc1234)`.
 
-После этого зайдите на `http://panel.timptr.ru`, авторизуйтесь мастер-паролем и при необходимости выпустите HTTPS-сертификат для `panel.timptr.ru` через UI. Для выпуска сертификата панель запросит email.
+После этого зайдите на `https://panel.timptr.ru` и авторизуйтесь мастер-паролем. Для выпуска сертификата install-скрипт запросит email Let's Encrypt, если он не задан в `CERTBOT_EMAIL`.
 
 `SESSION_SECRET` нужен Express для подписи cookie-сессии. Он не является паролем входа, но должен быть стабильным между рестартами: иначе все сессии будут сбрасываться. Слабый или общий секрет также упрощает подделку session cookie, поэтому install-скрипт генерирует длинное случайное значение автоматически.
 
@@ -86,7 +87,8 @@ server {
 | `PANEL_PASSWORD_B64` | - | Пароль администратора в base64; installer заполняет автоматически |
 | `PANEL_PASSWORD` | - | Legacy-вариант пароля администратора, используется только если нет `PANEL_PASSWORD_B64` |
 | `SESSION_SECRET` | - | Секрет cookie-сессии |
-| `COOKIE_SECURE` | `false` | Оставьте `false` для HTTP. Поставьте `true` только после выпуска HTTPS-сертификата |
+| `COOKIE_SECURE` | `true` | Панель ожидает HTTPS-only режим; installer включает secure-cookie после certbot |
+| `CERTBOT_EMAIL` | - | Email для Let's Encrypt; если пусто, installer спросит интерактивно |
 | `TRUST_PROXY` | `true` | Доверять `X-Forwarded-Proto` от nginx, чтобы secure-cookie работали за reverse proxy |
 | `PANEL_BUILD` | git commit | Build id, который показывается в title и UI |
 | `PANEL_VERSION` | package version | Версия приложения, которую показывает title и UI |
