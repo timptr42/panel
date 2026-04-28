@@ -584,6 +584,10 @@ async function issueCertificate(domain, email) {
   return stdout || stderr;
 }
 
+app.get('/api/healthz', (_req, res) => {
+  res.json({ ok: true });
+});
+
 app.get('/api/meta', (req, res) => {
   res.json({
     version: appVersion,
