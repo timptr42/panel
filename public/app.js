@@ -5,6 +5,7 @@ const appState = {
   selectedRoute: null,
   meta: null,
   showInactiveRoutes: false,
+  bulkDeployRunning: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -192,7 +193,7 @@ function renderContainers() {
               <button data-action="start" data-id="${escapeHtml(container.id)}" ${container.state === "running" ? "disabled" : ""}>Старт</button>
               <button data-action="stop" data-id="${escapeHtml(container.id)}" ${container.state !== "running" ? "disabled" : ""}>Стоп</button>
               <button data-action="restart" data-id="${escapeHtml(container.id)}">Рестарт</button>
-              <button data-deploy-run="${escapeHtml(container.id)}" ${(container.deploy?.effectiveExists ?? Boolean(container.deploy?.effectivePath)) ? "" : "disabled"}>Обновить из GitHub</button>
+              <button data-deploy-run="${escapeHtml(container.id)}" ${(appState.bulkDeployRunning || !(container.deploy?.effectiveExists ?? Boolean(container.deploy?.effectivePath))) ? "disabled" : ""}>Обновить из GitHub</button>
             </div>
             ${renderDeployControls(container)}
           </td>
@@ -328,6 +329,28 @@ function openDeployDialog({ containerName, scriptPath }) {
   }
 }
 
+function appendDeployDialogLog(logText) {
+  const log = $("#deploy-log");
+  log.textContent = `${log.textContent}
+${logText}`.trim();
+}
+
+function deployEligibleContainers() {
+  return appState.containers.filter((container) =>
+    container.deploy?.effectiveExists ?? Boolean(container.deploy?.effectivePath),
+  );
+}
+
+function updateDeployAllButton() {
+  const button = $("#deploy-all");
+  if (!button) return;
+  const eligibleCount = deployEligibleContainers().length;
+  button.textContent = eligibleCount
+    ? `Обновить все из GitHub (${eligibleCount})`
+    : "Обновить все из GitHub";
+  button.disabled = appState.bulkDeployRunning || eligibleCount === 0;
+}
+
 async function refreshAll() {
   const [containers, routes, certificates] = await Promise.all([
     api("/api/docker/containers"),
@@ -341,6 +364,7 @@ async function refreshAll() {
   renderSummary();
   renderRoutes();
   renderCertificates();
+  updateDeployAllButton();
 }
 
 async function loadDashboard() {
@@ -478,6 +502,87 @@ async function handleContainerAction(event) {
   }
 }
 
+
+async function runBulkDeployUpdate() {
+  const targets = deployEligibleContainers();
+  if (!targets.length) {
+    showMessage("Нет контейнеров с доступным deploy.sh", "error");
+    return;
+  }
+
+  appState.bulkDeployRunning = true;
+  updateDeployAllButton();
+  const startedAt = new Date().toLocaleString("ru-RU");
+
+  openDeployDialog({
+    containerName: "массовое обновление",
+    scriptPath: `${targets.length} контейнер(ов)`,
+  });
+  setDeployDialogStatus(`Массовое обновление: 0/${targets.length}`, "active");
+  setDeployDialogLog(
+    [
+      `[${startedAt}] Массовое обновление`,
+      `Контейнеров в очереди: ${targets.length}`,
+      "",
+    ].join("\n"),
+  );
+
+  let successCount = 0;
+  let failedCount = 0;
+  $("#deploy-close").disabled = true;
+
+  try {
+    for (let index = 0; index < targets.length; index += 1) {
+      const container = targets[index];
+      const containerName = container.names?.[0] || container.name || container.id;
+      const deployPath = container.deploy?.effectivePath || "не указан";
+      const stepLabel = `[${index + 1}/${targets.length}] ${containerName}`;
+
+      setDeployDialogStatus(`Шаг ${index + 1}/${targets.length}: ${containerName}`, "active");
+      appendDeployDialogLog([`--- ${stepLabel}`, `Скрипт: ${deployPath}`, ""].join("\n"));
+
+      try {
+        const result = await api(`/api/docker/containers/${container.id}/deploy-run`, {
+          method: "POST",
+          body: JSON.stringify({ path: "" }),
+        });
+        const output = (result.output || "").trim();
+        successCount += 1;
+        appendDeployDialogLog(
+          [
+            `OK: ${containerName}`,
+            output || "Команда завершена без вывода.",
+            "",
+          ].join("\n"),
+        );
+      } catch (error) {
+        failedCount += 1;
+        appendDeployDialogLog(
+          [
+            `ERROR: ${containerName}`,
+            String(error.message || error),
+            "",
+          ].join("\n"),
+        );
+      }
+    }
+
+    const summary = `Успешно: ${successCount}, ошибок: ${failedCount}, всего: ${targets.length}`;
+    if (failedCount === 0) {
+      setDeployDialogStatus(`Массовое обновление завершено. ${summary}`, "success");
+      showMessage(`Массовое обновление завершено. ${summary}`, "success");
+    } else {
+      setDeployDialogStatus(`Массовое обновление завершено с ошибками. ${summary}`, "error");
+      showMessage(`Массовое обновление завершено с ошибками. ${summary}`, "error");
+    }
+  } finally {
+    $("#deploy-close").disabled = false;
+    appState.bulkDeployRunning = false;
+    await refreshAll();
+  }
+}
+
+
 async function saveRoute(event) {
   event.preventDefault();
   const domain = $("#route-domain").value.trim();
@@ -575,6 +680,7 @@ $("#route-cancel").addEventListener("click", closeRouteDialog);
 $("#cert-form").addEventListener("submit", issueCertificate);
 $("#cert-cancel").addEventListener("click", () => $("#cert-dialog").close());
 $("#deploy-close").addEventListener("click", () => $("#deploy-dialog").close());
+$("#deploy-all").addEventListener("click", runBulkDeployUpdate);
 $("#containers-body").addEventListener("click", handleContainerAction);
 $("#renew-all").addEventListener("click", renewAllCertificates);
 
