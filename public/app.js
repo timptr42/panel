@@ -143,13 +143,14 @@ function renderDeployControls(container) {
   const configuredPath = deploy.configuredPath || "";
   const autoPath = deploy.autoPath || "";
   const effectivePath = deploy.effectivePath || "";
+  const effectiveExists = deploy.effectiveExists ?? Boolean(effectivePath);
   const candidateHint = (deploy.candidates || []).length
     ? escapeHtml(deploy.candidates.join(", "))
     : "пути не обнаружены";
 
   return `
     <div class="deploy-controls" data-deploy-controls="${escapeHtml(container.id)}">
-      <div class="subtle deploy-hint">deploy.sh: ${effectivePath ? `<code>${escapeHtml(effectivePath)}</code>` : "не найден"}</div>
+      <div class="subtle deploy-hint">deploy.sh: ${effectivePath ? `<code>${escapeHtml(effectivePath)}</code>${effectiveExists ? "" : " <span class=\"badge warning\">файл не найден</span>"}` : "не найден"}</div>
       <div class="subtle deploy-hint">Авто: ${autoPath ? `<code>${escapeHtml(autoPath)}</code>` : "не найден"}</div>
       <input
         class="deploy-input"
@@ -191,7 +192,7 @@ function renderContainers() {
               <button data-action="start" data-id="${escapeHtml(container.id)}" ${container.state === "running" ? "disabled" : ""}>Старт</button>
               <button data-action="stop" data-id="${escapeHtml(container.id)}" ${container.state !== "running" ? "disabled" : ""}>Стоп</button>
               <button data-action="restart" data-id="${escapeHtml(container.id)}">Рестарт</button>
-              <button data-deploy-run="${escapeHtml(container.id)}">Обновить из GitHub</button>
+              <button data-deploy-run="${escapeHtml(container.id)}" ${(container.deploy?.effectiveExists ?? Boolean(container.deploy?.effectivePath)) ? "" : "disabled"}>Обновить из GitHub</button>
             </div>
             ${renderDeployControls(container)}
           </td>

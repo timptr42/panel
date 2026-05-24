@@ -343,13 +343,18 @@ async function listContainers() {
       const deployKey = containerDeployKey(container);
       const configuredPath = deployOverrides[deployKey] || '';
       const { autoPath, candidates } = await discoverDeployScript(container);
+      const configuredExists = configuredPath ? await hostFileExists(configuredPath) : false;
+      const effectivePath = configuredPath || autoPath || '';
+      const effectiveExists = Boolean(effectivePath) && (configuredPath ? configuredExists : Boolean(autoPath));
       return {
         ...container,
         deploy: {
           key: deployKey,
           configuredPath,
+          configuredExists,
           autoPath,
-          effectivePath: configuredPath || autoPath || '',
+          effectivePath,
+          effectiveExists,
           candidates,
         },
       };
@@ -818,6 +823,10 @@ app.post('/api/docker/:id/:action', requireAuth, async (req, res, next) => {
   try {
     const id = validateContainerId(req.params.id);
     const action = String(req.params.action);
+    if (['deploy-path', 'deploy-run'].includes(action)) {
+      next('route');
+      return;
+    }
     if (!['start', 'stop', 'restart'].includes(action)) {
       res.status(400).json({ error: 'Unsupported Docker action' });
       return;
@@ -833,6 +842,10 @@ app.post('/api/docker/containers/:id/:action', requireAuth, async (req, res, nex
   try {
     const id = validateContainerId(req.params.id);
     const action = String(req.params.action);
+    if (['deploy-path', 'deploy-run'].includes(action)) {
+      next('route');
+      return;
+    }
     if (!['start', 'stop', 'restart'].includes(action)) {
       res.status(400).json({ error: 'Unsupported Docker action' });
       return;
