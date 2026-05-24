@@ -1,6 +1,6 @@
 {
   "name": "panel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Mini Ubuntu server control panel for Docker, nginx routes and certbot certificates.",
   "main": "src/server.js",
   "type": "module",

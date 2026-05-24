@@ -56,10 +56,9 @@ async function checkAuth() {
 }
 
 function renderMeta(meta) {
-  const version = meta?.version || "dev";
-  const build = meta?.build || "local";
+  const version = meta?.version || "1.0.0.0";
   const cookie = meta?.cookieSecure ? "secure-cookie" : "plain-cookie";
-  const label = `v${version} (${build}, ${cookie})`;
+  const label = `v${version} (${cookie})`;
   document.title = `timptr panel ${label}`;
   document.querySelectorAll("[data-version-label]").forEach((element) => {
     element.textContent = label;
@@ -71,7 +70,7 @@ async function loadMeta() {
     appState.meta = await api("/api/meta");
     renderMeta(appState.meta);
   } catch {
-    renderMeta({ version: "dev", build: "unknown" });
+    renderMeta({ version: "1.0.0.0" });
   }
 }
 

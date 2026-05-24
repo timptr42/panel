@@ -188,7 +188,7 @@ prepare_env() {
   [[ -n "$(read_env_value ALLOW_ANY_DOMAIN)" ]] || write_env_value ALLOW_ANY_DOMAIN "false"
   [[ -n "$(read_env_value CERTBOT_EMAIL)" ]] || [[ -z "${CERTBOT_EMAIL:-}" ]] || write_env_value CERTBOT_EMAIL "$CERTBOT_EMAIL"
   write_env_value PANEL_VERSION "$(node -e "console.log(require('./package.json').version)" 2>/dev/null || echo dev)"
-  write_env_value PANEL_BUILD "$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
+  write_env_value PANEL_BUILD "$(git rev-list --count HEAD 2>/dev/null || date +%s)"
 }
 
 show_panel_diagnostics() {

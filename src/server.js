@@ -15,13 +15,32 @@ const app = express();
 const port = Number(process.env.PORT || 7777);
 const hostRoot = process.env.HOST_ROOT || '/host';
 const managedPrefix = process.env.NGINX_MANAGED_PREFIX || 'panel-managed-';
-const appVersion = process.env.PANEL_VERSION || packageJson.version;
-const appBuild = process.env.PANEL_BUILD || 'dev';
+const appVersionRaw = process.env.PANEL_VERSION || packageJson.version;
+const appBuildRaw = process.env.PANEL_BUILD || '0';
 const allowAnyDomain = process.env.ALLOW_ANY_DOMAIN === 'true';
 const deployScriptsFile = process.env.DEPLOY_SCRIPTS_FILE || '/var/lib/timptr-panel/deploy-scripts.json';
 const domainPattern = allowAnyDomain
   ? /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i
   : /^[a-z0-9-]+\.timptr\.ru$/i;
+
+function numericBuildSegment(value) {
+  const digits = String(value ?? '').match(/\d+/g)?.join('') || '';
+  return digits || '0';
+}
+
+function panelVersionValue(versionValue, buildValue) {
+  const match = String(versionValue || '').trim().match(/^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$/);
+  if (match?.[4]) {
+    return `${match[1]}.${match[2]}.${match[3]}.${match[4]}`;
+  }
+  if (match) {
+    return `${match[1]}.${match[2]}.${match[3]}.${numericBuildSegment(buildValue)}`;
+  }
+  return `1.0.0.${numericBuildSegment(buildValue)}`;
+}
+
+const appVersion = panelVersionValue(appVersionRaw, appBuildRaw);
+const appBuild = appVersion.split('.').at(-1) || '0';
 
 function readPanelPassword() {
   if (process.env.PANEL_PASSWORD_B64) {

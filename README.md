@@ -53,7 +53,8 @@ sudo bash deploy.sh
 7. выпустит/установит HTTPS-сертификат через `certbot --nginx --redirect`;
 8. включит `COOKIE_SECURE=true` и перезапустит контейнер.
 
-Build id берется из текущего git commit и отображается в title страницы, например `timptr panel v1.0.0 (abc1234)`.
+Версия отображается в формате `X.Y.Z.N`, где `X.Y.Z` берется из `package.json`, а `N` из `PANEL_BUILD`.
+По умолчанию install-скрипт использует количество git-коммитов, например `timptr panel v1.0.1.264 (secure-cookie)`.
 
 После этого зайдите на `https://panel.timptr.ru` и авторизуйтесь мастер-паролем. Для выпуска сертификата install-скрипт запросит email Let's Encrypt, если он не задан в `CERTBOT_EMAIL`.
 
@@ -99,7 +100,7 @@ server {
 | `COOKIE_SECURE` | `true` | Панель ожидает HTTPS-only режим; installer включает secure-cookie после certbot |
 | `CERTBOT_EMAIL` | - | Email для Let's Encrypt; если пусто, installer спросит интерактивно |
 | `TRUST_PROXY` | `1` | Доверять `X-Forwarded-Proto` от nginx, чтобы secure-cookie работали за reverse proxy |
-| `PANEL_BUILD` | git commit | Build id, который показывается в title и UI |
+| `PANEL_BUILD` | git commit count | Числовой build-суффикс для формата версии `X.Y.Z.N` |
 | `PANEL_VERSION` | package version | Версия приложения, которую показывает title и UI |
 | `HOST_ROOT` | `/host` | Mount host root внутри контейнера |
 | `HOST_COMMAND_MODE` | `nsenter` | `nsenter` для контейнера, `direct` для локальной разработки |
