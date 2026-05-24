@@ -357,6 +357,39 @@ th {
   gap: 8px;
 }
 
+.deploy-cell {
+  min-width: 340px;
+}
+
+.deploy-controls {
+  display: grid;
+  gap: 6px;
+  min-width: 280px;
+}
+
+.deploy-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  background: #0b1220;
+}
+
+.deploy-actions {
+  gap: 6px;
+}
+
+.deploy-actions button {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.deploy-hint {
+  line-height: 1.35;
+  word-break: break-word;
+}
+
 button,
 .button {
   cursor: pointer;

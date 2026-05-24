@@ -9,6 +9,7 @@
 - вход по одному паролю;
 - просмотр всех Docker-контейнеров, их статусов и опубликованных портов;
 - `start` / `stop` / `restart` Docker-контейнеров;
+- автопоиск `deploy.sh` в docker-проекте контейнера, ручная привязка скрипта и запуск deploy из панели;
 - просмотр nginx-конфигов из `/etc/nginx/sites-available` и активных правил из `/etc/nginx/sites-enabled`;
 - создание и изменение маршрутов вида `%project%.timptr.ru -> http://127.0.0.1:%port%`;
 - просмотр сертификатов Let's Encrypt через `certbot certificates`;
@@ -98,6 +99,7 @@ server {
 | `HOST_NSENTER_FLAGS` | `-t 1 -u -i -n -p` | Namespace flags для host-команд; mount namespace специально не включен, чтобы был виден `/host` |
 | `NGINX_MANAGED_PREFIX` | `panel-managed-` | Префикс nginx-конфигов, которые создает панель |
 | `ALLOW_ANY_DOMAIN` | `false` | По умолчанию разрешены только `*.timptr.ru` |
+| `DEPLOY_SCRIPTS_FILE` | `/var/lib/timptr-panel/deploy-scripts.json` | Host-файл с ручными путями `deploy.sh` по контейнерам |
 
 ## Как создаются маршруты
 

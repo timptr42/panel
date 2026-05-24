@@ -18,6 +18,7 @@ const managedPrefix = process.env.NGINX_MANAGED_PREFIX || 'panel-managed-';
 const appVersion = process.env.PANEL_VERSION || packageJson.version;
 const appBuild = process.env.PANEL_BUILD || 'dev';
 const allowAnyDomain = process.env.ALLOW_ANY_DOMAIN === 'true';
+const deployScriptsFile = process.env.DEPLOY_SCRIPTS_FILE || '/var/lib/timptr-panel/deploy-scripts.json';
 const domainPattern = allowAnyDomain
   ? /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i
   : /^[a-z0-9-]+\.timptr\.ru$/i;
@@ -112,6 +113,27 @@ function validateEmail(value) {
   return email;
 }
 
+function createHttpError(status, message) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+function validateDeployScriptPath(value, { allowEmpty = false } = {}) {
+  const scriptPath = String(value || '').trim();
+  if (!scriptPath) {
+    if (allowEmpty) return '';
+    throw new Error('Deploy script path is required');
+  }
+  if (scriptPath.includes('\0')) {
+    throw new Error('Deploy script path contains invalid characters');
+  }
+  if (!path.posix.isAbsolute(scriptPath)) {
+    throw new Error('Deploy script path must be absolute');
+  }
+  return path.posix.normalize(scriptPath);
+}
+
 function shellEscape(value) {
   return `'${String(value).replaceAll("'", "'\"'\"'")}'`;
 }
@@ -187,13 +209,117 @@ function dockerPaths(container) {
   };
 }
 
+function normalizeHostAbsolutePath(hostAbsolutePath) {
+  if (!path.posix.isAbsolute(hostAbsolutePath)) {
+    throw new Error('Host path must be absolute');
+  }
+  return path.posix.normalize(hostAbsolutePath);
+}
+
+function hostFsPath(hostAbsolutePath) {
+  const normalized = normalizeHostAbsolutePath(hostAbsolutePath);
+  if (hostRoot === '/' || !hostRoot) {
+    return normalized;
+  }
+  return path.join(hostRoot, normalized);
+}
+
+async function hostFileStat(hostAbsolutePath) {
+  const filePath = hostFsPath(hostAbsolutePath);
+  try {
+    return await fs.stat(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function hostFileExists(hostAbsolutePath) {
+  const stat = await hostFileStat(hostAbsolutePath);
+  return Boolean(stat?.isFile());
+}
+
+function containerDeployKey(container) {
+  return container.name || container.shortId || container.id;
+}
+
+function deployCandidateDirectories(container) {
+  return uniq([
+    container.projectPath,
+    ...(container.paths?.composeFiles || []).map((item) => path.posix.dirname(item)),
+  ]);
+}
+
+function deployCandidatePaths(container) {
+  return deployCandidateDirectories(container).map((dir) => path.posix.join(dir, 'deploy.sh'));
+}
+
+async function discoverDeployScript(container) {
+  const candidates = deployCandidatePaths(container);
+  for (const candidate of candidates) {
+    if (await hostFileExists(candidate)) {
+      return { autoPath: candidate, candidates };
+    }
+  }
+  return { autoPath: '', candidates };
+}
+
+async function readDeployScriptOverrides() {
+  const configPath = hostFsPath(deployScriptsFile);
+  try {
+    const raw = await fs.readFile(configPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([containerName, scriptPath]) =>
+          typeof containerName === 'string' &&
+          containerName &&
+          typeof scriptPath === 'string' &&
+          scriptPath,
+      ),
+    );
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return {};
+    }
+    if (error instanceof SyntaxError) {
+      throw createHttpError(500, `Invalid deploy config JSON: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+async function writeDeployScriptOverrides(overrides) {
+  const configPath = hostFsPath(deployScriptsFile);
+  await fs.mkdir(path.dirname(configPath), { recursive: true });
+  await fs.writeFile(configPath, `${JSON.stringify(overrides, null, 2)}\n`, 'utf8');
+}
+
+async function saveDeployScriptOverride(containerKey, scriptPath) {
+  const overrides = await readDeployScriptOverrides();
+  if (scriptPath) {
+    overrides[containerKey] = scriptPath;
+  } else {
+    delete overrides[containerKey];
+  }
+  await writeDeployScriptOverrides(overrides);
+}
+
 async function listContainers() {
   const { stdout } = await hostShell(
     'ids=$(docker ps -aq); if [ -z "$ids" ]; then echo "[]"; else docker inspect -- $ids; fi',
   );
   const containers = JSON.parse(stdout || '[]');
-  return containers
-    .map((container) => ({
+  const deployOverrides = await readDeployScriptOverrides();
+  const baseContainers = containers
+    .map((container) => {
+      const paths = dockerPaths(container);
+      return {
       id: container.Id,
       shortId: container.Id.slice(0, 12),
       name: String(container.Name || '').replace(/^\//, ''),
@@ -204,10 +330,52 @@ async function listContainers() {
       status: container.State?.Status || '',
       created: container.Created || '',
       projectPath: dockerProjectPath(container),
-      paths: dockerPaths(container),
+      paths,
+      composeFiles: paths.composeFiles,
+      bindMounts: paths.binds,
       ports: mapDockerPorts(container.NetworkSettings?.Ports || {}),
-    }))
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  return Promise.all(
+    baseContainers.map(async (container) => {
+      const deployKey = containerDeployKey(container);
+      const configuredPath = deployOverrides[deployKey] || '';
+      const { autoPath, candidates } = await discoverDeployScript(container);
+      return {
+        ...container,
+        deploy: {
+          key: deployKey,
+          configuredPath,
+          autoPath,
+          effectivePath: configuredPath || autoPath || '',
+          candidates,
+        },
+      };
+    }),
+  );
+}
+
+async function resolveContainerById(id) {
+  const containers = await listContainers();
+  const container = containers.find((item) => item.id === id || item.shortId === id || item.name === id);
+  if (!container) {
+    throw createHttpError(404, 'Container not found');
+  }
+  return container;
+}
+
+async function resolveDeployScriptToRun(container, requestedPath = '') {
+  const deployPath = requestedPath || container.deploy?.configuredPath || container.deploy?.autoPath || '';
+  if (!deployPath) {
+    throw createHttpError(400, 'Deploy script is not configured and was not found automatically');
+  }
+  const stat = await hostFileStat(deployPath);
+  if (!stat?.isFile()) {
+    throw createHttpError(400, `Deploy script not found: ${deployPath}`);
+  }
+  return deployPath;
 }
 
 function hostPath(...parts) {
@@ -671,6 +839,38 @@ app.post('/api/docker/containers/:id/:action', requireAuth, async (req, res, nex
     }
     const { stdout, stderr } = await hostShell(`docker ${action} -- ${shellEscape(id)}`, { timeout: 60000 });
     res.json({ ok: true, output: stdout || stderr });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/docker/containers/:id/deploy-path', requireAuth, async (req, res, next) => {
+  try {
+    const id = validateContainerId(req.params.id);
+    const container = await resolveContainerById(id);
+    const scriptPath = validateDeployScriptPath(req.body?.path, { allowEmpty: true });
+    await saveDeployScriptOverride(container.deploy.key, scriptPath);
+    const updatedContainer = await resolveContainerById(id);
+    res.json({ ok: true, deploy: updatedContainer.deploy });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/docker/containers/:id/deploy-run', requireAuth, async (req, res, next) => {
+  try {
+    const id = validateContainerId(req.params.id);
+    const container = await resolveContainerById(id);
+    const requestedPath = validateDeployScriptPath(req.body?.path, { allowEmpty: true });
+    const scriptPath = await resolveDeployScriptToRun(container, requestedPath);
+    const { stdout, stderr } = await hostShell(
+      `cd ${shellEscape(path.posix.dirname(scriptPath))} && bash ${shellEscape(scriptPath)}`,
+      {
+        timeout: 600000,
+        maxBuffer: 1024 * 1024 * 20,
+      },
+    );
+    res.json({ ok: true, path: scriptPath, output: [stdout, stderr].filter(Boolean).join('\n').trim() });
   } catch (error) {
     next(error);
   }

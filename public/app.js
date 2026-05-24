@@ -138,6 +138,36 @@ function renderPaths(container) {
   return rows.length ? `<div class="path-list">${rows.join("")}</div>` : "<span class=\"muted-text\">нет host-путей</span>";
 }
 
+function renderDeployControls(container) {
+  const deploy = container.deploy || {};
+  const configuredPath = deploy.configuredPath || "";
+  const autoPath = deploy.autoPath || "";
+  const effectivePath = deploy.effectivePath || "";
+  const candidateHint = (deploy.candidates || []).length
+    ? escapeHtml(deploy.candidates.join(", "))
+    : "пути не обнаружены";
+
+  return `
+    <div class="deploy-controls" data-deploy-controls="${escapeHtml(container.id)}">
+      <input
+        class="deploy-input"
+        data-deploy-input="${escapeHtml(container.id)}"
+        placeholder="${escapeHtml(autoPath || "/opt/project/deploy.sh")}"
+        value="${escapeHtml(configuredPath)}"
+      />
+      <div class="actions deploy-actions">
+        <button type="button" class="secondary" data-deploy-autofill="${escapeHtml(container.id)}" data-auto-path="${escapeHtml(autoPath)}" ${autoPath ? "" : "disabled"}>Авто</button>
+        <button type="button" data-deploy-save="${escapeHtml(container.id)}">Сохранить</button>
+        <button type="button" class="secondary" data-deploy-clear="${escapeHtml(container.id)}" ${configuredPath ? "" : "disabled"}>Сброс</button>
+        <button type="button" data-deploy-run="${escapeHtml(container.id)}" ${effectivePath ? "" : "disabled"}>Запустить</button>
+      </div>
+      <div class="subtle deploy-hint">Авто: ${autoPath ? `<code>${escapeHtml(autoPath)}</code>` : "не найден"}</div>
+      <div class="subtle deploy-hint">Будет запущен: ${effectivePath ? `<code>${escapeHtml(effectivePath)}</code>` : "укажите путь или используйте авто"}</div>
+      <div class="subtle deploy-hint">Проверено: ${candidateHint}</div>
+    </div>
+  `;
+}
+
 function renderSummary() {
   $("#summary-containers").textContent = `${appState.containers.filter((item) => item.running).length}/${appState.containers.length}`;
   $("#summary-routes").textContent = `${appState.routes.filter((item) => item.enabled).length}/${appState.routes.length}`;
@@ -157,6 +187,7 @@ function renderContainers() {
           <td>${statusBadge(container.state === "running")}<div class="subtle">${container.status}</div></td>
           <td>${renderPaths(container)}</td>
           <td><div class="pill-list">${renderPorts(container.ports)}</div></td>
+          <td class="deploy-cell">${renderDeployControls(container)}</td>
           <td class="actions">
             <button data-action="start" data-id="${escapeHtml(container.id)}" ${container.state === "running" ? "disabled" : ""}>Старт</button>
             <button data-action="stop" data-id="${escapeHtml(container.id)}" ${container.state !== "running" ? "disabled" : ""}>Стоп</button>
@@ -166,7 +197,7 @@ function renderContainers() {
       `,
     )
     .join("")
-    : "<tr><td colspan=\"5\" class=\"muted-text\">Контейнеры не найдены</td></tr>";
+    : "<tr><td colspan=\"6\" class=\"muted-text\">Контейнеры не найдены</td></tr>";
 }
 
 function renderRoutes() {
@@ -295,17 +326,90 @@ async function loadDashboard() {
 }
 
 async function handleContainerAction(event) {
-  const button = event.target.closest("button[data-action]");
-  if (!button) return;
-  try {
-    button.disabled = true;
-    await api(`/api/docker/containers/${button.dataset.id}/${button.dataset.action}`, { method: "POST" });
-    showMessage("Команда Docker выполнена", "success");
-    await refreshAll();
-  } catch (error) {
-    showMessage(error.message, "error");
-  } finally {
-    button.disabled = false;
+  const dockerActionButton = event.target.closest("button[data-action]");
+  if (dockerActionButton) {
+    try {
+      dockerActionButton.disabled = true;
+      await api(`/api/docker/containers/${dockerActionButton.dataset.id}/${dockerActionButton.dataset.action}`, { method: "POST" });
+      showMessage("Команда Docker выполнена", "success");
+      await refreshAll();
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      dockerActionButton.disabled = false;
+    }
+    return;
+  }
+
+  const deployAutofillButton = event.target.closest("button[data-deploy-autofill]");
+  if (deployAutofillButton) {
+    const containerId = deployAutofillButton.dataset.deployAutofill;
+    const input = $(`input[data-deploy-input="${containerId}"]`);
+    if (input) {
+      input.value = deployAutofillButton.dataset.autoPath || "";
+    }
+    return;
+  }
+
+  const deploySaveButton = event.target.closest("button[data-deploy-save]");
+  if (deploySaveButton) {
+    const containerId = deploySaveButton.dataset.deploySave;
+    const input = $(`input[data-deploy-input="${containerId}"]`);
+    const scriptPath = input ? input.value.trim() : "";
+    try {
+      deploySaveButton.disabled = true;
+      await api(`/api/docker/containers/${containerId}/deploy-path`, {
+        method: "POST",
+        body: JSON.stringify({ path: scriptPath }),
+      });
+      showMessage("Путь deploy.sh сохранен", "success");
+      await refreshAll();
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      deploySaveButton.disabled = false;
+    }
+    return;
+  }
+
+  const deployClearButton = event.target.closest("button[data-deploy-clear]");
+  if (deployClearButton) {
+    const containerId = deployClearButton.dataset.deployClear;
+    try {
+      deployClearButton.disabled = true;
+      await api(`/api/docker/containers/${containerId}/deploy-path`, {
+        method: "POST",
+        body: JSON.stringify({ path: "" }),
+      });
+      showMessage("Ручной путь deploy.sh сброшен", "success");
+      await refreshAll();
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      deployClearButton.disabled = false;
+    }
+    return;
+  }
+
+  const deployRunButton = event.target.closest("button[data-deploy-run]");
+  if (deployRunButton) {
+    const containerId = deployRunButton.dataset.deployRun;
+    const input = $(`input[data-deploy-input="${containerId}"]`);
+    const scriptPath = input ? input.value.trim() : "";
+    try {
+      deployRunButton.disabled = true;
+      const result = await api(`/api/docker/containers/${containerId}/deploy-run`, {
+        method: "POST",
+        body: JSON.stringify({ path: scriptPath }),
+      });
+      const output = (result.output || "").trim();
+      showMessage(output ? `deploy.sh завершен:\n${output}` : "deploy.sh завершен", "success");
+      await refreshAll();
+    } catch (error) {
+      showMessage(error.message, "error");
+    } finally {
+      deployRunButton.disabled = false;
+    }
   }
 }
 
