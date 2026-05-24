@@ -177,6 +177,18 @@
       </form>
     </dialog>
 
+    <dialog id="deploy-dialog">
+      <section class="deploy-dialog-content">
+        <h2 id="deploy-dialog-title">Обновление из GitHub</h2>
+        <div id="deploy-status" class="deploy-status">Ожидание запуска</div>
+        <div class="subtle">Скрипт: <code id="deploy-script-path">-</code></div>
+        <pre id="deploy-log" class="deploy-log"></pre>
+        <menu>
+          <button type="button" id="deploy-close" class="secondary">Закрыть</button>
+        </menu>
+      </section>
+    </dialog>
+
     <script src="/app.js" type="module"></script>
   </body>
 </html>

@@ -562,3 +562,38 @@ dialog menu {
   margin: 8px 0 0;
   padding: 0;
 }
+
+.deploy-dialog-content {
+  display: grid;
+  gap: 10px;
+}
+
+.deploy-status {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.12);
+  font-size: 13px;
+}
+
+.deploy-status.success {
+  color: #bbf7d0;
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.deploy-status.error {
+  color: #fecdd3;
+  border-color: rgba(251, 113, 133, 0.55);
+  background: rgba(251, 113, 133, 0.12);
+}
+
+.deploy-log {
+  min-height: 180px;
+  max-height: 420px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+

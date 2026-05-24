@@ -305,6 +305,29 @@ function openCertDialog(domain) {
   $("#cert-dialog").showModal();
 }
 
+function containerById(containerId) {
+  return appState.containers.find((container) => container.id === containerId) || null;
+}
+
+function setDeployDialogStatus(text, type = "active") {
+  const status = $("#deploy-status");
+  status.textContent = text;
+  status.className = `deploy-status${type === "active" ? "" : ` ${type}`}`;
+}
+
+function setDeployDialogLog(logText) {
+  $("#deploy-log").textContent = logText;
+}
+
+function openDeployDialog({ containerName, scriptPath }) {
+  const dialog = $("#deploy-dialog");
+  $("#deploy-dialog-title").textContent = `Обновление из GitHub: ${containerName}`;
+  $("#deploy-script-path").textContent = scriptPath || "не указан";
+  if (!dialog.open) {
+    dialog.showModal();
+  }
+}
+
 async function refreshAll() {
   const [containers, routes, certificates] = await Promise.all([
     api("/api/docker/containers"),
@@ -397,22 +420,60 @@ async function handleContainerAction(event) {
   const deployRunButton = event.target.closest("button[data-deploy-run]");
   if (deployRunButton) {
     const containerId = deployRunButton.dataset.deployRun;
+    const container = containerById(containerId);
     const input = $(`input[data-deploy-input="${containerId}"]`);
-    const scriptPath = input ? input.value.trim() : "";
+    const requestedPath = input ? input.value.trim() : "";
+    const deployPath = requestedPath || container?.deploy?.effectivePath || "";
+    const containerName = container?.names?.[0] || container?.name || containerId;
+    const startedAt = new Date().toLocaleString("ru-RU");
+
+    openDeployDialog({ containerName, scriptPath: deployPath });
+    setDeployDialogStatus("Запускаем обновление, ожидайте...", "active");
+    setDeployDialogLog(
+      [
+        `[${startedAt}] Запуск обновления`,
+        `Контейнер: ${containerName}`,
+        `Скрипт: ${deployPath || "не указан"}`,
+        "",
+        "Ожидаем завершения команды...",
+      ].join("\n"),
+    );
+
     try {
       deployRunButton.disabled = true;
+      $("#deploy-close").disabled = true;
       const result = await api(`/api/docker/containers/${containerId}/deploy-run`, {
         method: "POST",
-        body: JSON.stringify({ path: scriptPath }),
+        body: JSON.stringify({ path: requestedPath }),
       });
       const output = (result.output || "").trim();
-      showMessage(output ? `Обновление из GitHub завершено:
-${output}` : "Обновление из GitHub завершено", "success");
+      setDeployDialogStatus("Обновление из GitHub завершено", "success");
+      setDeployDialogLog(
+        [
+          `[${startedAt}] Запуск обновления`,
+          `Контейнер: ${containerName}`,
+          `Скрипт: ${result.path || deployPath || "не указан"}`,
+          "",
+          output || "Команда завершена без вывода.",
+        ].join("\n"),
+      );
+      showMessage("Обновление из GitHub завершено", "success");
       await refreshAll();
     } catch (error) {
+      setDeployDialogStatus("Ошибка обновления из GitHub", "error");
+      setDeployDialogLog(
+        [
+          `[${startedAt}] Запуск обновления`,
+          `Контейнер: ${containerName}`,
+          `Скрипт: ${deployPath || "не указан"}`,
+          "",
+          String(error.message || error),
+        ].join("\n"),
+      );
       showMessage(error.message, "error");
     } finally {
       deployRunButton.disabled = false;
+      $("#deploy-close").disabled = false;
     }
   }
 }
@@ -513,6 +574,7 @@ $("#route-form").addEventListener("submit", saveRoute);
 $("#route-cancel").addEventListener("click", closeRouteDialog);
 $("#cert-form").addEventListener("submit", issueCertificate);
 $("#cert-cancel").addEventListener("click", () => $("#cert-dialog").close());
+$("#deploy-close").addEventListener("click", () => $("#deploy-dialog").close());
 $("#containers-body").addEventListener("click", handleContainerAction);
 $("#renew-all").addEventListener("click", renewAllCertificates);
 
