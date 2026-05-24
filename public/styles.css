@@ -357,8 +357,8 @@ th {
   gap: 8px;
 }
 
-.deploy-cell {
-  min-width: 340px;
+.actions-cell {
+  min-width: 420px;
 }
 
 .deploy-controls {

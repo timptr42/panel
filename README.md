@@ -35,6 +35,13 @@ cd /opt/panel
 sudo bash scripts/install.sh
 ```
 
+Для обновления с GitHub и применения актуального `main` можно запускать:
+
+```bash
+cd /opt/panel
+sudo bash deploy.sh
+```
+
 Скрипт:
 
 1. проверит наличие Docker/nginx/certbot;

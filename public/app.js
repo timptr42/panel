@@ -149,6 +149,8 @@ function renderDeployControls(container) {
 
   return `
     <div class="deploy-controls" data-deploy-controls="${escapeHtml(container.id)}">
+      <div class="subtle deploy-hint">deploy.sh: ${effectivePath ? `<code>${escapeHtml(effectivePath)}</code>` : "не найден"}</div>
+      <div class="subtle deploy-hint">Авто: ${autoPath ? `<code>${escapeHtml(autoPath)}</code>` : "не найден"}</div>
       <input
         class="deploy-input"
         data-deploy-input="${escapeHtml(container.id)}"
@@ -159,10 +161,7 @@ function renderDeployControls(container) {
         <button type="button" class="secondary" data-deploy-autofill="${escapeHtml(container.id)}" data-auto-path="${escapeHtml(autoPath)}" ${autoPath ? "" : "disabled"}>Авто</button>
         <button type="button" data-deploy-save="${escapeHtml(container.id)}">Сохранить</button>
         <button type="button" class="secondary" data-deploy-clear="${escapeHtml(container.id)}" ${configuredPath ? "" : "disabled"}>Сброс</button>
-        <button type="button" data-deploy-run="${escapeHtml(container.id)}" ${effectivePath ? "" : "disabled"}>Запустить</button>
       </div>
-      <div class="subtle deploy-hint">Авто: ${autoPath ? `<code>${escapeHtml(autoPath)}</code>` : "не найден"}</div>
-      <div class="subtle deploy-hint">Будет запущен: ${effectivePath ? `<code>${escapeHtml(effectivePath)}</code>` : "укажите путь или используйте авто"}</div>
       <div class="subtle deploy-hint">Проверено: ${candidateHint}</div>
     </div>
   `;
@@ -187,17 +186,20 @@ function renderContainers() {
           <td>${statusBadge(container.state === "running")}<div class="subtle">${container.status}</div></td>
           <td>${renderPaths(container)}</td>
           <td><div class="pill-list">${renderPorts(container.ports)}</div></td>
-          <td class="deploy-cell">${renderDeployControls(container)}</td>
-          <td class="actions">
-            <button data-action="start" data-id="${escapeHtml(container.id)}" ${container.state === "running" ? "disabled" : ""}>Старт</button>
-            <button data-action="stop" data-id="${escapeHtml(container.id)}" ${container.state !== "running" ? "disabled" : ""}>Стоп</button>
-            <button data-action="restart" data-id="${escapeHtml(container.id)}">Рестарт</button>
+          <td class="actions-cell">
+            <div class="actions">
+              <button data-action="start" data-id="${escapeHtml(container.id)}" ${container.state === "running" ? "disabled" : ""}>Старт</button>
+              <button data-action="stop" data-id="${escapeHtml(container.id)}" ${container.state !== "running" ? "disabled" : ""}>Стоп</button>
+              <button data-action="restart" data-id="${escapeHtml(container.id)}">Рестарт</button>
+              <button data-deploy-run="${escapeHtml(container.id)}">Обновить из GitHub</button>
+            </div>
+            ${renderDeployControls(container)}
           </td>
         </tr>
       `,
     )
     .join("")
-    : "<tr><td colspan=\"6\" class=\"muted-text\">Контейнеры не найдены</td></tr>";
+    : "<tr><td colspan=\"5\" class=\"muted-text\">Контейнеры не найдены</td></tr>";
 }
 
 function renderRoutes() {
@@ -403,7 +405,8 @@ async function handleContainerAction(event) {
         body: JSON.stringify({ path: scriptPath }),
       });
       const output = (result.output || "").trim();
-      showMessage(output ? `deploy.sh завершен:\n${output}` : "deploy.sh завершен", "success");
+      showMessage(output ? `Обновление из GitHub завершено:
+${output}` : "Обновление из GitHub завершено", "success");
       await refreshAll();
     } catch (error) {
       showMessage(error.message, "error");
